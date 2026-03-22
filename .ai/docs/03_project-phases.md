@@ -6,8 +6,8 @@ Esta fase estabelece a base técnica do projeto com setup inicial e módulos de 
 ### Tarefas pequenas:
 - [x] Configurar ambiente Python com FastAPI e SQLAlchemy
 - [x] Criar estrutura básica de diretórios do projeto
-- [ ] Configurar banco de dados SQLite com conexão funcional
-- [ ] Criar módulo `llm_service.py` com função de teste para conexão com Gemini
+- [x] Configurar banco de dados SQLite com conexão funcional
+- [x] Criar módulo `llm_service.py` com função de teste para conexão com Gemini
 - [ ] Criar módulo `video_service.py` com função de teste para conexão com API de vídeo
 - [ ] Criar módulo `drive_service.py` com função de teste para conexão com Google Drive
 - [ ] Implementar configuração de variáveis de ambiente para chaves de API

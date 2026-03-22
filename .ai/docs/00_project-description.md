@@ -4,16 +4,30 @@
 Video_UGC_Pipeline
 
 ## Objetivo de negócio
-Centralizar e automatizar o fluxo de ponta a ponta na criação de vídeos UGC, desde a entrada do briefing até a renderização final armazenada em nuvem.
+Automatizar o fluxo completo de criação de vídeos UGC via código (substituindo ferramentas como n8n), conectando a leitura de um briefing de texto à renderização de vídeo assistida por IA e armazenamento em nuvem.
 
 ## Problema principal resolvido
-A fragmentação, o trabalho manual e o tempo perdido ao transitar entre LLMs para criar roteiros/prompts, APIs de vídeo para renderização e o monitoramento exaustivo (polling) de plataformas de IA em fase de geração de vídeo.
+Elimina o tempo operacional de transitar manualmente entre LLMs, geradores de vídeo e drives virtuais, além de automatizar o "polling" e monitoramento de *cold starts* de modelos de vídeo.
 
 ## Resultado esperado
-Uma plataforma (ou ferramenta de uso local/web) onde o usuário insere um texto de briefing e, de forma assíncrona, o sistema orquestra a inteligência artificial para entregar um arquivo MP4 estruturado em uma pasta do Google Drive.
+Uma solução baseada em Python (FastAPI), com banco de dados SQLite para persistência de status do Job, que permite:
+- API/Interface para submissão de briefing
+- Integração com Gemini para gerar scripts/prompts
+- Orquestração de vídeo via requisições HTTP (com gerenciamento de fila/polling de status)
+- Salvamento automatizado no Google Drive
+- Front-end simples em Next.js (opcional)
+
+O foco é manter custos zero (Free Tiers) e evitar componentes fora do MVP como edição avançada, lip-sync, deploy cloud de alta disponibilidade e autenticação multi-tenant.
 
 ## Público-alvo / Perfis de usuário
 - Analistas de Marketing
 - Diretores de Arte
 - Engenheiros de Automação
 - Criadores de Conteúdo (Gestores de Tráfego)
+
+## Stack Tecnológica
+- Backend: Python (FastAPI)
+- Banco de Dados: SQLite
+- Frontend: Next.js (Front-end simples opcional)
+- Background Tasks para processamento assíncrono
+- APIs externas: Google Gemini, Hugging Face/API de Vídeo, Google Drive

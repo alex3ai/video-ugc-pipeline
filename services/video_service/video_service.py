@@ -1,6 +1,7 @@
 import os
 import requests
 from typing import Dict, Any, Optional
+from ...config import settings
 
 
 def test_video_api_connection():
@@ -8,8 +9,8 @@ def test_video_api_connection():
     Função de teste para conexão com API de vídeo
     """
     # Esta função verifica se é possível conectar-se à API de vídeo
-    api_url = os.getenv("VIDEO_API_URL", "https://api.example.com")
-    api_key = os.getenv("VIDEO_API_KEY", "")
+    api_url = settings.VIDEO_API_URL
+    api_key = settings.VIDEO_API_KEY
     
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -18,7 +19,7 @@ def test_video_api_connection():
     
     # Teste simples para verificar a conexão
     try:
-        response = requests.get(f"{api_url}/test", headers=headers, timeout=10)
+        response = requests.get(f"{api_url}/test", headers=headers, timeout=settings.REQUEST_TIMEOUT)
         
         if response.status_code == 200:
             print("Conexão com a API de vídeo bem-sucedida!")

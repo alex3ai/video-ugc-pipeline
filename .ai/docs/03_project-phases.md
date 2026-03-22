@@ -11,7 +11,7 @@ Esta fase estabelece a base técnica do projeto com setup inicial e módulos de 
 - [x] Criar módulo `llm_service.py` com função de teste para conexão com Gemini
 - [x] Criar módulo `video_service.py` com função de teste para conexão com API de vídeo
 - [x] Criar módulo `drive_service.py` com função de teste para conexão com Google Drive
-- [ ] Implementar configuração de variáveis de ambiente para chaves de API
+- [x] Implementar configuração de variáveis de ambiente para chaves de API
 - [ ] Realizar testes unitários básicos para cada módulo de serviço
 - [ ] Documentar erros comuns e soluções para cada conector
 

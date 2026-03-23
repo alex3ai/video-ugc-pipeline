@@ -6,6 +6,9 @@ from fastapi import FastAPI
 from database import engine, SessionLocal, Base
 from config import settings, validate_settings
 
+# Importar as rotas
+from api.routes import include_routes
+
 # Validar configurações antes de iniciar
 try:
     validate_settings()
@@ -26,6 +29,9 @@ app = FastAPI(title="Video_UGC_Pipeline")
 
 # Create tables
 Base.metadata.create_all(bind=engine)
+
+# Incluir rotas
+include_routes(app)
 
 @app.get("/")
 def read_root():

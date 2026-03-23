@@ -40,7 +40,7 @@ Esta fase implementa a lógica central do processamento automatizado da pipeline
 Esta fase implementa a interface com o usuário e finaliza a pipeline completa.
 
 ### Tarefas pequenas:
-- [ ] Criar endpoint POST para submissão de nova campanha
+- [x] Criar endpoint POST para submissão de nova campanha
 - [ ] Implementar validação do briefing_text no endpoint de submissão
 - [ ] Criar endpoint GET para listagem de campanhas e seus jobs
 - [ ] Implementar filtro por status no endpoint de listagem

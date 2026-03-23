@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from enum import Enum
 
-from ..database import Base  # Adjust according to your actual database module
+from database import Base  # Corrigindo o caminho de importação para o Base do database.py
 
 
 class JobStatusEnum(Enum):

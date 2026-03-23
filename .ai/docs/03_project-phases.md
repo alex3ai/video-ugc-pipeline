@@ -22,7 +22,7 @@ Esta fase implementa a lógica central do processamento automatizado da pipeline
 - [x] Criar modelo Pydantic para `Campaign` com validação de briefing_text (50-2000 chars)
 - [x] Criar modelo Pydantic para `PipelineJob` com enumeração de status
 - [x] Criar modelos SQLAlchemy para persistência no banco de dados
-- [ ] Implementar função de inicialização de novo job com status PENDING
+- [x] Implementar função de inicialização de novo job com status PENDING
 - [ ] Implementar worker para buscar jobs PENDING no banco
 - [ ] Integrar `llm_service.py` com a geração de prompt para jobs PENDING
 - [ ] Implementar lógica de retry (até 3 vezes) para falhas na API do Gemini

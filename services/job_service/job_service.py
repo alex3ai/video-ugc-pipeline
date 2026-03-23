@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from models.entities import PipelineJob, Campaign, JobStatusEnum
 from models.pydantic import PipelineJob as PipelineJobPydantic
-
+from services.llm_service import get_llm_service
 
 def initialize_new_job(db: Session, campaign_id: int, prompt: Optional[str] = None) -> PipelineJob:
     """
@@ -105,3 +105,78 @@ def update_job_status(db: Session, job_id: int, status: JobStatusEnum,
     db.refresh(job)
     
     return job
+
+async def process_pending_job_with_llm(db: Session, max_retries: int = 3):
+    """
+    Integrar `llm_service.py` com a geração de prompt para jobs PENDING
+
+    Args:
+        db: Sessão do banco de dados
+        max_retries: Número máximo de tentativas para gerar o prompt
+
+    Returns:
+        True se o prompt foi gerado com sucesso, False caso contrário
+    """
+    # Pegar um job pendente
+    job = fetch_and_process_next_pending_job(db)
+    if not job:
+        return False
+
+    # Pegar a campanha associada para obter o briefing
+    campaign = db.query(Campaign).filter(Campaign.id == job.campaign_id).first()
+    if not campaign:
+        error_msg = f"Campanha não encontrada para o job {job.id}"
+        update_job_status(db, job.id, JobStatusEnum.FAILED, error_message=error_msg)
+        return False
+
+    # Tentar gerar o prompt usando o LLM
+    llm_service = get_llm_service()
+    last_error = None
+
+    for attempt in range(max_retries):
+        try:
+            generated_prompt = await llm_service.generate_prompt_from_brief(campaign.briefing_text)
+            if generated_prompt:
+                # Atualizar o job com o prompt gerado e mudar o status
+                update_job_status(db, job.id, JobStatusEnum.PROMPT_GENERATED, prompt=generated_prompt)
+                return True
+            else:
+                last_error = f"Tentativa {attempt + 1}: Falha ao gerar o prompt"
+        except Exception as e:
+            last_error = f"Tentativa {attempt + 1}: Erro ao gerar prompt - {str(e)}"
+            print(last_error)
+
+    # Se chegou aqui, todas as tentativas falharam
+    update_job_status(db, job.id, JobStatusEnum.FAILED, error_message=last_error or "Erro desconhecido")
+    return False
+
+def transition_job_status_pending_to_prompt_generated(db: Session, job_id: int, prompt: str) -> bool:
+    """
+    Implementar função de transição de status PENDING -> PROMPT_GENERATED
+
+    Args:
+        db: Sessão do banco de dados
+        job_id: ID do job a ter o status alterado
+        prompt: Prompt gerado a ser salvo no job
+
+    Returns:
+        True se a transição foi feita com sucesso, False caso contrário
+    """
+    try:
+        # Obter o job pelo ID
+        job = db.query(PipelineJob).filter(PipelineJob.id == job_id).first()
+        if not job:
+            print(f"Job com ID {job_id} não encontrado")
+            return False
+
+        # Verificar se o status atual é PENDING
+        if job.status != JobStatusEnum.PENDING:
+            print(f"Job com ID {job_id} não está no status PENDING, atual: {job.status.value}")
+            return False
+
+        # Atualizar o status para PROMPT_GENERATED e salvar o prompt
+        update_job_status(db, job_id, JobStatusEnum.PROMPT_GENERATED, prompt=prompt)
+        return True
+    except Exception as e:
+        print(f"Erro ao tentar transicionar o status do job {job_id}: {str(e)}")
+        return False

@@ -24,9 +24,9 @@ Esta fase implementa a lógica central do processamento automatizado da pipeline
 - [x] Criar modelos SQLAlchemy para persistência no banco de dados
 - [x] Implementar função de inicialização de novo job com status PENDING
 - [x] Implementar worker para buscar jobs PENDING no banco
-- [ ] Integrar `llm_service.py` com a geração de prompt para jobs PENDING
-- [ ] Implementar lógica de retry (até 3 vezes) para falhas na API do Gemini
-- [ ] Implementar função de transição de status PENDING -> PROMPT_GENERATED
+- [x] Integrar `llm_service.py` com a geração de prompt para jobs PENDING
+- [x] Implementar lógica de retry (até 3 vezes) para falhas na API do Gemini
+- [x] Implementar função de transição de status PENDING -> PROMPT_GENERATED
 - [ ] Implementar função de envio do prompt para API de vídeo
 - [ ] Implementar lógica de polling inteligente com backoff exponencial para status PROCESSING_VIDEO
 - [ ] Tratar respostas HTTP 503 (Cold Start) com retentativa

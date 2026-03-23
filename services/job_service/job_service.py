@@ -1,3 +1,4 @@
+VIDEO_RENDER_TIMEOUT = 600  # 10 minutos em segundos
 from sqlalchemy.orm import Session
 from typing import Optional
 import sys
@@ -69,10 +70,16 @@ def fetch_and_process_next_pending_job(db: Session):
         Um único job PENDING para ser processado ou None se não houver
     """
     # Busca o primeiro job com status PENDING
-    # Garantindo que apenas um job seja selecionado por vez
+    # Utiliza um lock pessimista para evitar que outros workers selecionem o mesmo job
     pending_job = db.query(PipelineJob).filter(
         PipelineJob.status == JobStatusEnum.PENDING
-    ).first()
+    ).with_for_update().first()
+    
+    if pending_job:
+        # Atualiza o status para PROCESSING para indicar que este job está sendo processado
+        pending_job.status = JobStatusEnum.PROCESSING
+        db.commit()
+        db.refresh(pending_job)
     
     return pending_job
 
@@ -303,7 +310,7 @@ def poll_video_processing_status(db: Session, job_id: int) -> bool:
     initial_delay = 5  # segundos
     max_delay = 120  # segundos
     multiplier = 2  # fator de multiplicação para backoff
-    total_timeout = settings.VIDEO_RENDER_TIMEOUT  # usar o timeout configurado
+    total_timeout = 600  # 10 minutos em segundos (poderia vir de configuração também)
     start_time = time.time()
 
     delay = initial_delay

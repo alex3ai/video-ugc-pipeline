@@ -10,6 +10,7 @@ from database import Base  # Corrigindo o caminho de importação para o Base do
 class JobStatusEnum(Enum):
     PENDING = "PENDING"
     PROMPT_GENERATED = "PROMPT_GENERATED"
+    PROCESSING = "PROCESSING"
     PROCESSING_VIDEO = "PROCESSING_VIDEO"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"

@@ -53,6 +53,25 @@ def get_pending_jobs(db: Session):
     return db.query(PipelineJob).filter(PipelineJob.status == JobStatusEnum.PENDING).all()
 
 
+def fetch_and_process_next_pending_job(db: Session):
+    """
+    Implementar worker para buscar jobs PENDING no banco
+    
+    Args:
+        db: Sessão do banco de dados
+        
+    Returns:
+        Um único job PENDING para ser processado ou None se não houver
+    """
+    # Busca o primeiro job com status PENDING
+    # Garantindo que apenas um job seja selecionado por vez
+    pending_job = db.query(PipelineJob).filter(
+        PipelineJob.status == JobStatusEnum.PENDING
+    ).first()
+    
+    return pending_job
+
+
 def update_job_status(db: Session, job_id: int, status: JobStatusEnum, 
                      prompt: Optional[str] = None, video_url: Optional[str] = None, 
                      error_message: Optional[str] = None):

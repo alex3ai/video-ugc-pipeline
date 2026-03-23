@@ -4,8 +4,7 @@ from typing import Optional
 
 from database import get_db
 from models.pydantic import Campaign as CampaignSchema
-from models.entities import Campaign as CampaignEntity
-from services.job_service import initialize_new_job
+from models.entities import Campaign as CampaignEntity, JobStatusEnum, PipelineJob
 
 router = APIRouter()
 
@@ -47,18 +46,46 @@ def submit_campaign(campaign: CampaignSchema, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Erro ao criar campanha: {str(e)}")
 
 
-@router.get("/campaigns/", response_model=list)
-def list_campaigns(db: Session = Depends(get_db)):
+@router.get("/campaigns/", response_model=dict)
+def list_campaigns(
+    status: Optional[str] = None,
+    page: int = 1,
+    size: int = 10,
+    db: Session = Depends(get_db)
+):
     """
     Endpoint para listagem de campanhas e seus jobs
+    Permite filtrar por status do job opcionalmente e paginar os resultados
     """
     try:
-        campaigns = db.query(CampaignEntity).all()
+        # Calcular offset baseado na página e tamanho
+        offset = (page - 1) * size
+        
+        # Query base para contagem total (antes da paginação)
+        total_query = db.query(CampaignEntity)
+        total_count = total_query.count()
+        
+        # Query para obter as campanhas com paginação
+        campaigns_query = total_query.offset(offset).limit(size)
+        campaigns = campaigns_query.all()
         
         result = []
         for campaign in campaigns:
             # Obter os jobs associados a cada campanha
-            jobs = campaign.jobs  # A relação já está definida no modelo
+            jobs_query = db.query(campaign.jobs)
+            if status:
+                # Filtrar jobs por status se o parâmetro for fornecido
+                try:
+                    status_enum = JobStatusEnum(status.upper())
+                    jobs_query = jobs_query.filter(campaign.jobs.any(status=status_enum))
+                except ValueError:
+                    raise HTTPException(status_code=400, detail=f"Status inválido: {status}. Status válidos: {[e.value for e in JobStatusEnum]}")
+            
+            jobs = jobs_query.all()
+            
+            # Se foi aplicado filtro de status e não há jobs correspondentes, pular esta campanha
+            if status and not jobs:
+                continue
             
             campaign_data = {
                 "id": campaign.id,
@@ -79,9 +106,53 @@ def list_campaigns(db: Session = Depends(get_db)):
             }
             result.append(campaign_data)
             
-        return result
+        # Calcular número total de páginas
+        total_pages = (total_count + size - 1) // size
+        
+        return {
+            "data": result,
+            "pagination": {
+                "current_page": page,
+                "size": size,
+                "total_items": total_count,
+                "total_pages": total_pages
+            }
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao listar campanhas: {str(e)}")
+
+
+@router.get("/jobs/{job_id}", response_model=dict)
+def get_job_details(job_id: int, db: Session = Depends(get_db)):
+    """
+    Endpoint para obter detalhes de um job específico
+    """
+    try:
+        # Buscar o job pelo ID
+        job = db.query(PipelineJob).filter(PipelineJob.id == job_id).first()
+        
+        if not job:
+            raise HTTPException(status_code=404, detail="Job não encontrado")
+        
+        # Obter também os detalhes da campanha associada
+        campaign = db.query(CampaignEntity).filter(CampaignEntity.id == job.campaign_id).first()
+        
+        return {
+            "id": job.id,
+            "campaign_id": job.campaign_id,
+            "campaign_name": campaign.name if campaign else None,
+            "prompt": job.prompt,
+            "video_url": job.video_url,
+            "status": job.status.value,
+            "error_message": job.error_message,
+            "created_at": job.created_at,
+            "updated_at": job.updated_at
+        }
+    except HTTPException:
+        # Re-raise HTTP exceptions to preserve status codes
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao obter detalhes do job: {str(e)}")
 
 
 # Importar outros módulos de rotas para registrar

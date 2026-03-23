@@ -46,7 +46,7 @@ Esta fase implementa a interface com o usuário e finaliza a pipeline completa.
 - [x] Implementar filtro por status no endpoint de listagem
 - [x] Criar endpoint GET para detalhes de um job específico
 - [x] Implementar paginação para listagens grandes
-- [ ] Desenvolver front-end simples em Next.js com formulário de submissão
+- [x] Desenvolver front-end simples em Next.js com formulário de submissão
 - [ ] Implementar dashboard com listagem de campanhas e status em tempo real
 - [ ] Integrar `drive_service.py` com upload do vídeo gerado para Google Drive
 - [ ] Implementar persistência do link do vídeo no campo video_url do job

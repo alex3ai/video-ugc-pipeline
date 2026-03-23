@@ -1,7 +1,9 @@
 import os
 import requests
 from typing import Dict, Any, Optional
-from ...config import settings
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+from config import settings
 
 
 def test_video_api_connection():

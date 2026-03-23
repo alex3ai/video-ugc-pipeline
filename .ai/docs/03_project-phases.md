@@ -12,8 +12,8 @@ Esta fase estabelece a base técnica do projeto com setup inicial e módulos de 
 - [x] Criar módulo `video_service.py` com função de teste para conexão com API de vídeo
 - [x] Criar módulo `drive_service.py` com função de teste para conexão com Google Drive
 - [x] Implementar configuração de variáveis de ambiente para chaves de API
-- [ ] Realizar testes unitários básicos para cada módulo de serviço
-- [ ] Documentar erros comuns e soluções para cada conector
+- [x] Realizar testes unitários básicos para cada módulo de serviço
+- [x] Documentar erros comuns e soluções para cada conector
 
 ## Fase 1: Pipeline Core (Worker/Background Task)
 Esta fase implementa a lógica central do processamento automatizado da pipeline.

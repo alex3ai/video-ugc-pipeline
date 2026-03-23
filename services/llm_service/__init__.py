@@ -51,8 +51,14 @@ class LLMService:
             return None
 
 
-# Singleton instance
-llm_service = LLMService()
+def get_llm_service():
+    """
+    Get or create LLMService instance (lazy initialization)
+    """
+    global _llm_service_instance
+    if '_llm_service_instance' not in globals():
+        _llm_service_instance = LLMService()
+    return _llm_service_instance
 
 
 def test_gemini_connection():
@@ -61,10 +67,11 @@ def test_gemini_connection():
     """
     try:
         import asyncio
-        
+
         async def _test():
-            return await llm_service.test_connection()
-        
+            service = get_llm_service()
+            return await service.test_connection()
+
         return asyncio.run(_test())
     except Exception as e:
         print(f"Error during connection test: {e}")

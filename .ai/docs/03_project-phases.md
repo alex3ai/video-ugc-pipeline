@@ -34,7 +34,7 @@ Esta fase implementa a lógica central do processamento automatizado da pipeline
 - [x] Implementar transição de status PROCESSING_VIDEO -> COMPLETED
 - [x] Implementar transições para status FAILED e TIMEOUT com logs de erro
 - [x] Garantir restrição de execução de apenas 1 job por vez
-- [ ] Testar máquina de estados completa com diferentes cenários
+- [x] Testar máquina de estados completa com diferentes cenários
 
 ## Fase 2: Front-end e Entrega final
 Esta fase implementa a interface com o usuário e finaliza a pipeline completa.

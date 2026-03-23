@@ -41,8 +41,8 @@ Esta fase implementa a interface com o usuário e finaliza a pipeline completa.
 
 ### Tarefas pequenas:
 - [x] Criar endpoint POST para submissão de nova campanha
-- [ ] Implementar validação do briefing_text no endpoint de submissão
-- [ ] Criar endpoint GET para listagem de campanhas e seus jobs
+- [x] Implementar validação do briefing_text no endpoint de submissão
+- [x] Criar endpoint GET para listagem de campanhas e seus jobs
 - [ ] Implementar filtro por status no endpoint de listagem
 - [ ] Criar endpoint GET para detalhes de um job específico
 - [ ] Implementar paginação para listagens grandes

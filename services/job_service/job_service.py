@@ -2,11 +2,16 @@ from sqlalchemy.orm import Session
 from typing import Optional
 import sys
 import os
+import requests
+import time
+from datetime import datetime, timedelta
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from models.entities import PipelineJob, Campaign, JobStatusEnum
 from models.pydantic import PipelineJob as PipelineJobPydantic
 from services.llm_service import get_llm_service
+from config import settings
+
 
 def initialize_new_job(db: Session, campaign_id: int, prompt: Optional[str] = None) -> PipelineJob:
     """
@@ -180,3 +185,241 @@ def transition_job_status_pending_to_prompt_generated(db: Session, job_id: int, 
     except Exception as e:
         print(f"Erro ao tentar transicionar o status do job {job_id}: {str(e)}")
         return False
+
+def send_prompt_to_video_api(db: Session, job_id: int) -> bool:
+    """
+    Implementar função de envio do prompt para API de vídeo
+
+    Args:
+        db: Sessão do banco de dados
+        job_id: ID do job que contém o prompt a ser enviado
+
+    Returns:
+        True se o prompt foi enviado com sucesso e o job está PROCESSING_VIDEO, False caso contrário
+    """
+    # Obter o job pelo ID
+    job = db.query(PipelineJob).filter(PipelineJob.id == job_id).first()
+    if not job:
+        print(f"Job com ID {job_id} não encontrado")
+        return False
+
+    # Verificar se o status atual é PROMPT_GENERATED (necessário para enviar para a API de vídeo)
+    if job.status != JobStatusEnum.PROMPT_GENERATED:
+        print(f"Job com ID {job_id} não está no status PROMPT_GENERATED, atual: {job.status.value}")
+        return False
+
+    # Preparar os dados para enviar para a API de vídeo
+    api_url = settings.VIDEO_API_URL
+    api_key = settings.VIDEO_API_KEY
+    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "prompt": job.prompt,
+        "campaign_id": job.campaign_id
+    }
+
+    # Tentativas para lidar com respostas HTTP 503 (Cold Start)
+    max_retries = settings.MAX_RETRIES
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        try:
+            # Enviar o prompt para a API de vídeo
+            response = requests.post(
+                f"{api_url}/generate", 
+                json=payload, 
+                headers=headers, 
+                timeout=settings.REQUEST_TIMEOUT
+            )
+
+            # Verificar resposta da API
+            if response.status_code == 200 or response.status_code == 202:
+                # Atualizar o status do job para PROCESSING_VIDEO
+                update_job_status(db, job_id, JobStatusEnum.PROCESSING_VIDEO)
+                print(f"Prompt enviado com sucesso para processamento. Job ID: {job_id}, Status: PROCESSING_VIDEO")
+                return True
+            elif response.status_code == 503:
+                # Serviço indisponível (Cold Start), aguardar e tentar novamente
+                retry_count += 1
+                wait_time = 2 ** retry_count  # Backoff exponencial
+                print(f"Recebido 503 (Cold Start) para job {job_id}, tentando novamente em {wait_time} segundos...")
+                time.sleep(wait_time)
+            else:
+                # Em caso de outro erro, registrar mensagem de erro e atualizar status para FAILED
+                error_message = f"Falha ao enviar o prompt para a API de vídeo. Status: {response.status_code}, Response: {response.text}"
+                print(error_message)
+                update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+                return False
+
+        except requests.exceptions.ConnectionError:
+            error_message = "Falha de conexão ao tentar enviar o prompt para a API de vídeo"
+            print(error_message)
+            update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+            return False
+        except requests.exceptions.Timeout:
+            error_message = f"Timeout ao tentar enviar o prompt para a API de vídeo (>{settings.REQUEST_TIMEOUT}s)"
+            print(error_message)
+            update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+            return False
+        except Exception as e:
+            error_message = f"Erro ao enviar o prompt para a API de vídeo: {str(e)}"
+            print(error_message)
+            update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+            return False
+
+    # Se todas as tentativas falharem devido a 503
+    error_message = f"Falha após {max_retries} tentativas devido a respostas 503 (Cold Start)"
+    update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+    print(error_message)
+    return False
+
+def poll_video_processing_status(db: Session, job_id: int) -> bool:
+    """
+    Implementar lógica de polling inteligente com backoff exponencial para status PROCESSING_VIDEO
+    
+    Args:
+        db: Sessão do banco de dados
+        job_id: ID do job que está sendo processado
+        
+    Returns:
+        True se o processamento terminou e o status foi atualizado, False caso contrário
+    """
+    # Obter o job pelo ID
+    job = db.query(PipelineJob).filter(PipelineJob.id == job_id).first()
+    if not job:
+        print(f"Job com ID {job_id} não encontrado")
+        return False
+
+    # Verificar se o status atual é PROCESSING_VIDEO
+    if job.status != JobStatusEnum.PROCESSING_VIDEO:
+        print(f"Job com ID {job_id} não está no status PROCESSING_VIDEO, atual: {job.status.value}")
+        return False
+
+    # Configurações para polling inteligente
+    initial_delay = 5  # segundos
+    max_delay = 120  # segundos
+    multiplier = 2  # fator de multiplicação para backoff
+    total_timeout = settings.VIDEO_RENDER_TIMEOUT  # usar o timeout configurado
+    start_time = time.time()
+
+    delay = initial_delay
+
+    while time.time() - start_time < total_timeout:
+        try:
+            # Preparar requisição para verificar o status do vídeo
+            api_url = settings.VIDEO_API_URL
+            api_key = settings.VIDEO_API_KEY
+            
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+
+            # Fazer requisição para obter status do vídeo
+            response = requests.get(
+                f"{api_url}/status/{job_id}", 
+                headers=headers, 
+                timeout=settings.REQUEST_TIMEOUT
+            )
+
+            if response.status_code == 200:
+                status_data = response.json()
+                
+                # Processar resposta da API
+                if status_data.get("status") == "completed":
+                    # Vídeo foi gerado com sucesso
+                    video_url = status_data.get("video_url")
+                    update_job_status(db, job_id, JobStatusEnum.COMPLETED, video_url=video_url)
+                    print(f"Vídeo gerado com sucesso. Job ID: {job_id}, Status: COMPLETED")
+                    return True
+                
+                elif status_data.get("status") == "failed":
+                    # Processamento falhou
+                    error_message = status_data.get("error", "Erro desconhecido no processamento do vídeo")
+                    update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+                    print(f"Falha no processamento do vídeo. Job ID: {job_id}, Status: FAILED")
+                    return True
+                
+                elif status_data.get("status") == "processing":
+                    # Ainda processando, continuar com polling
+                    print(f"Vídeo ainda sendo processado. Job ID: {job_id}, Status: PROCESSING_VIDEO")
+                    
+            elif response.status_code == 503:
+                # Serviço indisponível (Cold Start), aguardar e tentar novamente
+                print(f"Serviço indisponível (503) para job {job_id}. Aguardando...")
+            
+            else:
+                # Outro erro HTTP
+                print(f"Erro na API ao verificar status do vídeo. Status: {response.status_code}")
+
+        except requests.exceptions.RequestException as e:
+            print(f"Erro na requisição de verificação de status: {str(e)}")
+        except Exception as e:
+            print(f"Erro inesperado ao verificar status do vídeo: {str(e)}")
+
+        # Esperar antes da próxima verificação (backoff exponencial)
+        print(f"Aguardando {delay} segundos antes da próxima verificação...")
+        time.sleep(delay)
+        
+        # Calcular próximo delay com backoff exponencial, limitado ao máximo
+        delay = min(delay * multiplier, max_delay)
+
+    # Se chegamos aqui, o timeout foi atingido
+    error_message = f"Tempo limite excedido para processamento do vídeo (>{total_timeout}s)"
+    update_job_status(db, job_id, JobStatusEnum.TIMEOUT, error_message=error_message)
+    print(f"Tempo limite atingido para o processamento do vídeo. Job ID: {job_id}, Status: TIMEOUT")
+    return True
+
+def handle_http_503_with_retry(func, *args, max_retries=settings.MAX_RETRIES, **kwargs):
+    """
+    Tratar respostas HTTP 503 (Cold Start) com retentativa
+    
+    Wrapper para funções que fazem chamadas HTTP que podem retornar 503 (Cold Start)
+    e precisam ser repetidas com backoff exponencial.
+    
+    Args:
+        func: função que faz chamada HTTP
+        *args: argumentos posicionais para a função
+        max_retries: número máximo de tentativas
+        **kwargs: argumentos nomeados para a função
+        
+    Returns:
+        Resultado da função ou None se todas as tentativas falharem
+    """
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        try:
+            result = func(*args, **kwargs)
+            
+            # Verificar se é uma resposta HTTP
+            if hasattr(result, 'status_code') and result.status_code == 503:
+                retry_count += 1
+                wait_time = 2 ** retry_count  # Backoff exponencial
+                print(f"Recebido 503 (Cold Start), tentando novamente em {wait_time} segundos...")
+                time.sleep(wait_time)
+                continue
+            else:
+                # Se não for 503, retornar o resultado
+                return result
+        except requests.exceptions.ConnectionError as e:
+            if "503" in str(e):
+                retry_count += 1
+                wait_time = 2 ** retry_count  # Backoff exponencial
+                print(f"Conexão retornou 503 (Cold Start), tentando novamente em {wait_time} segundos...")
+                time.sleep(wait_time)
+                continue
+            else:
+                # Não é um erro 503, então lançar novamente
+                raise e
+        except Exception as e:
+            # Qualquer outro erro, lançar novamente
+            raise e
+    
+    # Se chegarmos aqui, todas as tentativas falharam
+    print(f"Falha após {max_retries} tentativas devido a respostas 503 (Cold Start)")
+    return None

@@ -27,9 +27,9 @@ Esta fase implementa a lógica central do processamento automatizado da pipeline
 - [x] Integrar `llm_service.py` com a geração de prompt para jobs PENDING
 - [x] Implementar lógica de retry (até 3 vezes) para falhas na API do Gemini
 - [x] Implementar função de transição de status PENDING -> PROMPT_GENERATED
-- [ ] Implementar função de envio do prompt para API de vídeo
-- [ ] Implementar lógica de polling inteligente com backoff exponencial para status PROCESSING_VIDEO
-- [ ] Tratar respostas HTTP 503 (Cold Start) com retentativa
+- [x] Implementar função de envio do prompt para API de vídeo
+- [x] Implementar lógica de polling inteligente com backoff exponencial para status PROCESSING_VIDEO
+- [x] Tratar respostas HTTP 503 (Cold Start) com retentativa
 - [ ] Implementar timeout de 10 minutos para o processo de renderização
 - [ ] Implementar transição de status PROCESSING_VIDEO -> COMPLETED
 - [ ] Implementar transições para status FAILED e TIMEOUT com logs de erro

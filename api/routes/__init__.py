@@ -5,6 +5,7 @@ from typing import Optional
 from database import get_db
 from models.pydantic import Campaign as CampaignSchema
 from models.entities import Campaign as CampaignEntity, JobStatusEnum, PipelineJob
+from services.job_service import initialize_new_job
 
 router = APIRouter()
 
@@ -72,15 +73,15 @@ def list_campaigns(
         result = []
         for campaign in campaigns:
             # Obter os jobs associados a cada campanha
-            jobs_query = db.query(campaign.jobs)
+            jobs_query = db.query(PipelineJob).filter(PipelineJob.campaign_id == campaign.id)
             if status:
                 # Filtrar jobs por status se o parâmetro for fornecido
                 try:
                     status_enum = JobStatusEnum(status.upper())
-                    jobs_query = jobs_query.filter(campaign.jobs.any(status=status_enum))
+                    jobs_query = jobs_query.filter(PipelineJob.status == status_enum)
                 except ValueError:
                     raise HTTPException(status_code=400, detail=f"Status inválido: {status}. Status válidos: {[e.value for e in JobStatusEnum]}")
-            
+
             jobs = jobs_query.all()
             
             # Se foi aplicado filtro de status e não há jobs correspondentes, pular esta campanha

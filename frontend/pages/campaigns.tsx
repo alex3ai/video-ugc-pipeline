@@ -11,6 +11,7 @@ interface Job {
 
 interface Campaign {
   id: string;
+  name: string;
   briefing_text: string;
   jobs: Job[];
 }
@@ -28,7 +29,7 @@ export default function CampaignsPage() {
           throw new Error('Failed to fetch campaigns');
         }
         const data = await response.json();
-        setCampaigns(data);
+        setCampaigns(data.data || []);
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -81,6 +82,7 @@ export default function CampaignsPage() {
             <table className="min-w-full">
               <thead>
                 <tr className="bg-gray-100">
+                  <th className="py-3 px-4 text-left">Nome</th>
                   <th className="py-3 px-4 text-left">Briefing</th>
                   <th className="py-3 px-4 text-left">Status</th>
                   <th className="py-3 px-4 text-left">Data de Criação</th>
@@ -90,6 +92,7 @@ export default function CampaignsPage() {
               <tbody>
                 {campaigns.map((campaign) => (
                   <tr key={campaign.id} className="border-t border-gray-200">
+                    <td className="py-3 px-4 font-medium">{campaign.name}</td>
                     <td className="py-3 px-4 max-w-xs truncate">{campaign.briefing_text.substring(0, 100)}{campaign.briefing_text.length > 100 ? '...' : ''}</td>
                     <td className="py-3 px-4">
                       {campaign.jobs.length > 0 ? (

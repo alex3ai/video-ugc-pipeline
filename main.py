@@ -1,10 +1,9 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-
 from fastapi import FastAPI
 from database import engine, SessionLocal, Base
 from config import settings, validate_settings
+
+# Importar os modelos para registrar as tabelas no Base
+from models.entities import Campaign, PipelineJob
 
 # Importar as rotas
 from api.routes import include_routes
@@ -14,16 +13,6 @@ try:
     validate_settings()
 except ValueError as e:
     print(f"Erro de configuração: {e}")
-
-# Atualizar a URL do banco de dados com base nas configurações
-SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-Base = declarative_base()
 
 app = FastAPI(title="Video_UGC_Pipeline")
 

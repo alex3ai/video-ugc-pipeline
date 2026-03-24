@@ -12,7 +12,11 @@ export default async function handler(
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { briefing_text } = req.body;
+  const { name, briefing_text } = req.body;
+
+  if (!name || typeof name !== 'string') {
+    return res.status(400).json({ detail: 'Campaign name is required and must be a string' });
+  }
 
   if (!briefing_text || typeof briefing_text !== 'string') {
     return res.status(400).json({ detail: 'Briefing text is required and must be a string' });
@@ -29,7 +33,7 @@ export default async function handler(
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ briefing_text }),
+      body: JSON.stringify({ name, briefing_text }),
     });
 
     if (!backendResponse.ok) {

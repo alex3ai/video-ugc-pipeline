@@ -8,7 +8,7 @@ Esta fase estabelece a base técnica do projeto com setup inicial e módulos de 
 - [x] Configurar ambiente Python com FastAPI e SQLAlchemy
 - [x] Criar estrutura básica de diretórios do projeto
 - [x] Configurar banco de dados SQLite com conexão funcional
-- [x] Criar módulo `llm_service.py` com função de teste para conexão com Gemini
+- [x] Criar módulo `llm_service.py` com função de teste para conexão com Grok ou Hugging Face Llama
 - [x] Criar módulo `video_service.py` com função de teste para conexão com API de vídeo
 - [x] Criar módulo `drive_service.py` com função de teste para conexão com Google Drive
 - [x] Implementar configuração de variáveis de ambiente para chaves de API
@@ -24,8 +24,8 @@ Esta fase implementa a lógica central do processamento automatizado da pipeline
 - [x] Criar modelos SQLAlchemy para persistência no banco de dados
 - [x] Implementar função de inicialização de novo job com status PENDING
 - [x] Implementar worker para buscar jobs PENDING no banco
-- [x] Integrar `llm_service.py` com a geração de prompt para jobs PENDING
-- [x] Implementar lógica de retry (até 3 vezes) para falhas na API do Gemini
+- [x] Integrar `llm_service.py` com a geração de prompt para jobs PENDING (suporte a múltiplos provedores)
+- [x] Implementar lógica de retry (até 3 vezes) para falhas na API de qualquer provedor
 - [x] Implementar função de transição de status PENDING -> PROMPT_GENERATED
 - [x] Implementar função de envio do prompt para API de vídeo
 - [x] Implementar lógica de polling inteligente com backoff exponencial para status PROCESSING_VIDEO
@@ -53,6 +53,7 @@ Esta fase implementa a interface com o usuário e finaliza a pipeline completa.
 - [x] Implementar atualização de status para COMPLETED após upload no Drive
 - [x] Adicionar tratamento de falhas no upload para Google Drive (3 tentativas)
 - [x] Implementar armazenamento temporário em caso de falha de upload
-- [x] Testar fluxo completo: briefing → prompt → vídeo → upload → link
-- [ ] Realizar testes de ponta a ponta para validação final
-- [ ] Documentar a API com exemplos de uso
+- [x] Testar fluxo completo: briefing → prompt (com Grok ou Llama 3) → vídeo → upload → link
+- [x] Implementar fallback automático para provedor gratuito quando o pago não está disponível
+- [x] Realizar testes de ponta a ponta para validação final
+- [x] Documentar a API com exemplos de uso

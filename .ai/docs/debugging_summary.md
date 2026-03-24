@@ -46,6 +46,16 @@
 
 ## 3. Log de Soluções
 
+### ✅ [2026-03-24] Troca do modelo LLM de Gemini para Llama 3.1 via Hugging Face
+- **Problema:** O modelo original (Google Gemini) era pago e causava dependência de custos
+- **Causa:** Necessidade de usar modelos gratuitos para manter custos zero (Free Tiers)
+- **Solução:**
+  - Substituir Google Generative AI por Hugging Face InferenceClient
+  - Configurar token de acesso ao Hugging Face (HF_TOKEN)
+  - Atualizar service `services/llm_service/__init__.py` para usar novo cliente
+  - Atualizar `.env.example` e `.env` com variáveis do Hugging Face
+  - Atualizar `requirements.txt` para incluir dependência `huggingface_hub`
+
 ### ✅ [2026-03-24] Frontend recebia erro 422 ao criar campanha
 - **Problema:** Erro `422 Unprocessable Entity` ao submeter formulário com briefing
 - **Causa:** Proxy API em `pages/api/campaigns.ts` extraía apenas `briefing_text` do request e enviava apenas este campo para o backend, mas o schema Pydantic requer `name` e `briefing_text`

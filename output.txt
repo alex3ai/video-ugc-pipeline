@@ -1,0 +1,29 @@
+Iniciando teste do fluxo completo...
+
+1. Criando campanha de teste...
+Campanha criada com ID: 12
+
+2. Inicializando novo job...
+Job inicializado com ID: 10, Status: PENDING
+
+3. Processando job com LLM para gerar prompt...
+Error: API returned status code 403
+Response: {"code":"The caller does not have permission to execute the specified operation","error":"Your newly created team doesn't have any credits or licenses yet. You can purchase those on https://console.x.ai/team/98705688-d46f-4267-aa89-04a4768b93ac."}
+Error: API returned status code 403
+Response: {"code":"The caller does not have permission to execute the specified operation","error":"Your newly created team doesn't have any credits or licenses yet. You can purchase those on https://console.x.ai/team/98705688-d46f-4267-aa89-04a4768b93ac."}
+Error: API returned status code 403
+Response: {"code":"The caller does not have permission to execute the specified operation","error":"Your newly created team doesn't have any credits or licenses yet. You can purchase those on https://console.x.ai/team/98705688-d46f-4267-aa89-04a4768b93ac."}
+GeraþÒo de prompt com LLM falhou
+Status ap¾s processamento LLM: PENDING
+
+4. Enviando prompt para API de vÝdeo...
+
+5. Simulando polling do status de processamento do vÝdeo...
+
+6. Fazendo upload do vÝdeo para o Google Drive...
+
+Fluxo completo testado com sucesso!
+Resumo:
+- Campanha criada: Test Campaign
+- Job criado com ID: 10
+- Status final do job: PENDING

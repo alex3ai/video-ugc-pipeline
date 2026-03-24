@@ -7,17 +7,17 @@ import asyncio
 # Adicionando o diretório raiz ao path para permitir imports relativos
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from services.llm_service import LLMService
+from services.llm_service import LLMService, test_llm_connection
 from services.video_service.video_service import test_video_api_connection
 from services.drive_service.drive_service import test_drive_connection
 
 
 class TestLLMService(unittest.TestCase):
-    """Testes para o serviço de LLM (Gemini)"""
+    """Testes para o serviço de LLM (Grok ou Hugging Face Llama)"""
 
-    @patch('os.getenv', return_value='fake-api-key')
+    @patch('os.getenv', side_effect=lambda x, default="": 'fake-api-key' if x in ['GROK_API_KEY', 'LLAMA_API_KEY', 'HF_API_KEY'] else default)
     def test_llm_service_initialization(self, mock_getenv):
-        """Testa se o LLMService pode ser inicializado"""
+        """Testa se o LLMService pode ser inicializado com qualquer provedor"""
         # Apenas testa se a inicialização não lança erro com API key fake
         try:
             service = LLMService()

@@ -12,7 +12,7 @@ Elimina o tempo operacional de transitar manualmente entre LLMs, geradores de v�
 ## Resultado esperado
 Uma solução baseada em Python (FastAPI), com banco de dados SQLite para persistência de status do Job, que permite:
 - API/Interface para submissão de briefing
-- Integração com Gemini para gerar scripts/prompts
+- Integração flexível com diferentes provedores de LLM (Grok da xAI ou Llama 3 via Hugging Face) para gerar scripts/prompts
 - Orquestração de vídeo via requisições HTTP (com gerenciamento de fila/polling de status)
 - Salvamento automatizado no Google Drive
 - Front-end simples em Next.js (opcional)
@@ -30,4 +30,4 @@ O foco é manter custos zero (Free Tiers) e evitar componentes fora do MVP como 
 - Banco de Dados: SQLite
 - Frontend: Next.js (Front-end simples opcional)
 - Background Tasks para processamento assíncrono
-- APIs externas: Google Gemini, Hugging Face/API de Vídeo, Google Drive
+- APIs externas: xAI Grok (opcional/pago) ou Meta Llama 3 via Hugging Face (gratuito), Hugging Face/API de Vídeo, Google Drive

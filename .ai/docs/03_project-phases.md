@@ -53,6 +53,6 @@ Esta fase implementa a interface com o usuário e finaliza a pipeline completa.
 - [x] Implementar atualização de status para COMPLETED após upload no Drive
 - [x] Adicionar tratamento de falhas no upload para Google Drive (3 tentativas)
 - [x] Implementar armazenamento temporário em caso de falha de upload
-- [ ] Testar fluxo completo: briefing → prompt → vídeo → upload → link
+- [x] Testar fluxo completo: briefing → prompt → vídeo → upload → link
 - [ ] Realizar testes de ponta a ponta para validação final
 - [ ] Documentar a API com exemplos de uso

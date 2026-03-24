@@ -6,6 +6,7 @@ import requests
 import time
 from datetime import datetime, timedelta
 import tempfile
+import uuid
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from models.entities import PipelineJob, Campaign, JobStatusEnum
@@ -468,7 +469,53 @@ def upload_video_to_drive(db: Session, job_id: int, video_url: str) -> bool:
     except Exception as e:
         error_message = f"Erro ao fazer upload do vídeo para o Google Drive: {str(e)}"
         print(error_message)
-        update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+        print("Tentando armazenar vídeo temporariamente...")
+        
+        # Implementar armazenamento temporário em caso de falha de upload
+        temp_storage_success = store_video_temporarily(video_bytes, job_id, filename)
+        if temp_storage_success:
+            # Mesmo com falha no upload para o Drive, manter o job como PROCESSING_VIDEO
+            # para tentar novamente mais tarde ou para que outro processo possa tentar
+            update_job_status(db, job_id, JobStatusEnum.UPLOAD_FAILED, video_url="", error_message=error_message)
+            print(f"Vídeo armazenado temporariamente. Job ID: {job_id}, Status: UPLOAD_FAILED")
+            return False
+        else:
+            # Se nem o armazenamento temporário funcionar, marcar como falha definitiva
+            update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+            print(f"Falha definitiva no armazenamento. Job ID: {job_id}, Status: FAILED")
+            return False
+
+
+def store_video_temporarily(video_bytes: bytes, job_id: int, original_filename: str) -> bool:
+    """
+    Armazenar vídeo temporariamente em caso de falha no upload para o Google Drive.
+    
+    Args:
+        video_bytes: Conteúdo do vídeo em bytes
+        job_id: ID do job relacionado
+        original_filename: Nome original do arquivo
+        
+    Returns:
+        True se o armazenamento temporário foi bem-sucedido, False caso contrário
+    """
+    try:
+        # Criar um diretório temporário para armazenamento local
+        temp_dir = os.path.join(tempfile.gettempdir(), "video_ugc_pipeline")
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
+        
+        # Gerar um nome único para o arquivo temporário
+        unique_filename = f"temp_{job_id}_{uuid.uuid4()}_{original_filename}"
+        temp_file_path = os.path.join(temp_dir, unique_filename)
+        
+        # Salvar o vídeo nos arquivos temporários do sistema
+        with open(temp_file_path, 'wb') as temp_file:
+            temp_file.write(video_bytes)
+        
+        print(f"Vídeo armazenado temporariamente em: {temp_file_path}")
+        return True
+    except Exception as e:
+        print(f"Erro ao armazenar vídeo temporariamente: {str(e)}")
         return False
 
 

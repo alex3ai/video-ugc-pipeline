@@ -1,4 +1,3 @@
-VIDEO_RENDER_TIMEOUT = 600  # 10 minutos em segundos
 from sqlalchemy.orm import Session
 from typing import Optional
 import sys
@@ -6,11 +5,13 @@ import os
 import requests
 import time
 from datetime import datetime, timedelta
+import tempfile
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from models.entities import PipelineJob, Campaign, JobStatusEnum
 from models.pydantic import PipelineJob as PipelineJobPydantic
 from services.llm_service import get_llm_service
+from services.drive_service.drive_service import DriveService
 from config import settings
 
 
@@ -310,7 +311,7 @@ def poll_video_processing_status(db: Session, job_id: int) -> bool:
     initial_delay = 5  # segundos
     max_delay = 120  # segundos
     multiplier = 2  # fator de multiplicação para backoff
-    total_timeout = 600  # 10 minutos em segundos (poderia vir de configuração também)
+    total_timeout = VIDEO_RENDER_TIMEOUT  # 10 minutos em segundos (poderia vir de configuração também)
     start_time = time.time()
 
     delay = initial_delay
@@ -340,9 +341,17 @@ def poll_video_processing_status(db: Session, job_id: int) -> bool:
                 if status_data.get("status") == "completed":
                     # Vídeo foi gerado com sucesso
                     video_url = status_data.get("video_url")
-                    update_job_status(db, job_id, JobStatusEnum.COMPLETED, video_url=video_url)
-                    print(f"Vídeo gerado com sucesso. Job ID: {job_id}, Status: COMPLETED")
-                    return True
+                    
+                    # Faz download do vídeo e faz upload para o Google Drive
+                    success = upload_video_to_drive(db, job_id, video_url)
+                    if success:
+                        print(f"Vídeo gerado e enviado ao Drive com sucesso. Job ID: {job_id}, Status: COMPLETED")
+                        return True
+                    else:
+                        # Em caso de falha no upload para o Drive, atualiza status para FAILED
+                        error_message = "Falha ao fazer upload do vídeo para o Google Drive"
+                        update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+                        return False
                 
                 elif status_data.get("status") == "failed":
                     # Processamento falhou
@@ -380,6 +389,88 @@ def poll_video_processing_status(db: Session, job_id: int) -> bool:
     update_job_status(db, job_id, JobStatusEnum.TIMEOUT, error_message=error_message)
     print(f"Tempo limite atingido para o processamento do vídeo. Job ID: {job_id}, Status: TIMEOUT")
     return True
+
+
+def upload_video_to_drive(db: Session, job_id: int, video_url: str) -> bool:
+    """
+    Integrar `drive_service.py` com upload do vídeo gerado para Google Drive
+    
+    Args:
+        db: Sessão do banco de dados
+        job_id: ID do job que contém o vídeo a ser enviado
+        video_url: URL do vídeo gerado que será baixado e enviado para o Google Drive
+
+    Returns:
+        True se o upload foi feito com sucesso e o job está COMPLETED, False caso contrário
+    """
+    # Obter o job pelo ID
+    job = db.query(PipelineJob).filter(PipelineJob.id == job_id).first()
+    if not job:
+        print(f"Job com ID {job_id} não encontrado")
+        return False
+
+    # Verificar se o status atual é PROCESSING_VIDEO ou COMPLETED (antes do upload)
+    if job.status not in [JobStatusEnum.PROCESSING_VIDEO, JobStatusEnum.COMPLETED]:
+        print(f"Job com ID {job_id} não está no status PROCESSING_VIDEO, atual: {job.status.value}")
+        return False
+
+    # Fazer download do vídeo a partir da URL
+    max_retries = 3
+    retry_count = 0
+    
+    while retry_count < max_retries:
+        try:
+            response = requests.get(video_url, timeout=settings.REQUEST_TIMEOUT)
+            if response.status_code == 200:
+                video_bytes = response.content
+                break
+            else:
+                print(f"Erro ao baixar o vídeo. Status: {response.status_code}")
+                retry_count += 1
+                time.sleep(2 ** retry_count)  # Backoff exponencial
+        except Exception as e:
+            print(f"Erro ao baixar o vídeo: {str(e)}")
+            retry_count += 1
+            time.sleep(2 ** retry_count)  # Backoff exponencial
+    
+    if retry_count >= max_retries:
+        error_message = "Falha após 3 tentativas de download do vídeo gerado"
+        update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+        return False
+
+    # Inicializar o serviço do Google Drive
+    try:
+        drive_service = DriveService()
+    except Exception as e:
+        error_message = f"Erro ao inicializar o serviço do Google Drive: {str(e)}"
+        update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+        return False
+
+    # Gerar nome do arquivo baseado no job e campanha
+    campaign = db.query(Campaign).filter(Campaign.id == job.campaign_id).first()
+    if not campaign:
+        error_message = f"Campanha não encontrada para o job {job.id}"
+        update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+        return False
+
+    # Criar nome do arquivo
+    filename = f"video_{campaign.name.replace(' ', '_')}_job-{job_id}.mp4"
+
+    # Fazer upload do vídeo para o Google Drive
+    try:
+        file_metadata = drive_service.upload_file(video_bytes, filename, "video/mp4")
+        drive_video_url = file_metadata.get('webViewLink', '')
+        
+        # Atualizar o job com o link do vídeo no Drive e mudar o status para COMPLETED
+        update_job_status(db, job_id, JobStatusEnum.COMPLETED, video_url=drive_video_url)
+        print(f"Vídeo enviado para o Google Drive com sucesso. Job ID: {job_id}, Status: COMPLETED")
+        return True
+    except Exception as e:
+        error_message = f"Erro ao fazer upload do vídeo para o Google Drive: {str(e)}"
+        print(error_message)
+        update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+        return False
+
 
 def handle_http_503_with_retry(func, *args, max_retries=settings.MAX_RETRIES, **kwargs):
     """

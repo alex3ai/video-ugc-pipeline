@@ -20,9 +20,9 @@ Registra os trabalhos de processamento da pipeline de vídeo, incluindo status e
 | id | UUID (PK) | Identificador único do job |
 | campaign_id | UUID (FK -> Campaign.id) | Chave estrangeira referenciando a campanha associada |
 | status | Enum | Status do job (PENDING, PROMPT_GENERATED, PROCESSING_VIDEO, COMPLETED, FAILED, TIMEOUT) |
-| generated_prompt | Text (Nullable) | Prompt gerado pelo sistema (opcional) |
+| prompt | Text (Nullable) | Prompt gerado pelo sistema (opcional) |
 | video_url | String (Nullable) | Link final do vídeo no Google Drive (opcional) |
-| error_log | Text (Nullable) | Registro de erros ocorridos durante o processamento (opcional) |
+| error_message | Text (Nullable) | Mensagem de erro ocorrida durante o processamento (opcional) |
 | created_at | Datetime | Data e hora de criação do job |
 | updated_at | Datetime | Data e hora da última atualização do job |
 

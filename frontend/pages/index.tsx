@@ -3,6 +3,7 @@ import Header from '../components/Header';
 import { useState } from 'react';
 
 export default function Home() {
+  const [campaignName, setCampaignName] = useState('');
   const [briefingText, setBriefingText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -18,7 +19,7 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ briefing_text: briefingText }),
+        body: JSON.stringify({ name: campaignName, briefing_text: briefingText }),
       });
 
       if (response.ok) {
@@ -47,6 +48,21 @@ export default function Home() {
         </p>
         
         <form onSubmit={handleSubmit} className="w-full max-w-2xl bg-white p-6 rounded-lg shadow-md">
+          <div className="mb-6">
+            <label htmlFor="campaignName" className="block text-lg font-medium mb-2">
+              Nome da Campanha
+            </label>
+            <input
+              id="campaignName"
+              type="text"
+              value={campaignName}
+              onChange={(e) => setCampaignName(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Ex: Campanha Verão 2026"
+              required
+            />
+          </div>
+
           <div className="mb-6">
             <label htmlFor="briefingText" className="block text-lg font-medium mb-2">
               Briefing do Vídeo

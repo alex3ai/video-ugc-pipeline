@@ -11,7 +11,7 @@ export default async function handler(
 
   try {
     // Fetch campaigns from the backend API
-    const backendResponse = await fetch(`${process.env.BACKEND_API_URL || 'http://localhost:8000'}/campaigns`);
+    const backendResponse = await fetch(`${process.env.BACKEND_API_URL || 'http://localhost:8000'}/api/campaigns/`);
     
     if (!backendResponse.ok) {
       const errorData = await backendResponse.json();

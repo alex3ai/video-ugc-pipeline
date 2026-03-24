@@ -157,4 +157,4 @@ def get_job_details(job_id: int, db: Session = Depends(get_db)):
 
 # Importar outros módulos de rotas para registrar
 def include_routes(app):
-    app.include_router(router, prefix="/api/v1")
+    app.include_router(router, prefix="/api")

@@ -24,7 +24,7 @@ export default async function handler(
 
   try {
     // Forward the request to the backend API
-    const backendResponse = await fetch(`${process.env.BACKEND_API_URL || 'http://localhost:8000'}/campaigns`, {
+    const backendResponse = await fetch(`${process.env.BACKEND_API_URL || 'http://localhost:8000'}/api/campaigns/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

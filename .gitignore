@@ -35,3 +35,19 @@ wheels/
 # Environment
 .env
 .env.local
+
+# Frontend (Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+
+# Frontend - lock files (opcional, manter se quiser versionar)
+# frontend/package-lock.json
+# frontend/pnpm-lock.yaml
+# frontend/yarn.lock
+
+# Banco de dados SQLite
+*.db
+*.sqlite
+*.sqlite3

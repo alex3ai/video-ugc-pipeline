@@ -1,5 +1,24 @@
 # Erros Comuns dos Conectores
 
+## Configuração Geral
+
+### Erro: `Erros de configuração encontrados: GEMINI_API_KEY não está definida`
+- **Causa:** Arquivo `.env` não está sendo carregado automaticamente
+- **Solução:**
+  1. Instalar `python-dotenv`: `pip install python-dotenv`
+  2. Adicionar `from dotenv import load_dotenv` e `load_dotenv()` no início do `config.py`
+  3. Criar arquivo `.env` na raiz do projeto baseado em `.env.example`
+  4. Reiniciar o servidor após criar/editar `.env`
+
+### Erro: `ValueError: Erros de configuração encontrados: ...`
+- **Causa:** Uma ou mais variáveis obrigatórias não estão definidas no `.env`
+- **Solução:**
+  1. Verificar `.env.example` para lista completa de variáveis
+  2. Para desenvolvimento local, usar valores dummy (ex: `dummy_key_for_local_test`)
+  3. Validar com: `python -c "from config import settings; print(settings.dict())"`
+
+---
+
 ## LLM Service (Google Gemini)
 
 ### Erro: `API key not valid`

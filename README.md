@@ -12,16 +12,19 @@ This project automates the creation of user-generated content (UGC) videos from 
 
 Create a `.env` file in the project root with the following variables:
 
+**Important Note About Video API:** The VIDEO_API_URL should point to a dedicated video generation API (such as Stability AI's video API, RunwayML, Kaiber, etc.) and NOT to a text generation API like Hugging Face or Grok. The system first generates a prompt using the LLM, then sends that prompt to the video generation API to create the actual video.
+
 ```bash
 # LLM Configuration (Choose one)
 GROK_API_KEY=your_grok_api_key_here           # For Grok API
 # OR
 HF_API_KEY=your_hf_api_key_here               # Hugging Face API key for free tier
-HF_MODEL=meta-llama/Meta-Llama-3-8B-Instruct # Model to use
+HF_MODEL=meta-llama/Meta-Llama-3.1-8B-Instruct # Model to use (updated to latest version)
 HF_INFERENCE_API_URL=https://huggingface.co   # For newer HF endpoints
 
-# Video API Configuration
-VIDEO_API_URL=https://your-video-api-url.com
+# Video API Configuration (Separate from LLM API!)
+# This should point to a dedicated video generation API, NOT a text generation API
+VIDEO_API_URL=https://your-video-generation-api.com
 VIDEO_API_KEY=your_video_api_key_here
 
 # Google Drive Configuration

@@ -318,7 +318,7 @@ def poll_video_processing_status(db: Session, job_id: int) -> bool:
     initial_delay = 5  # segundos
     max_delay = 120  # segundos
     multiplier = 2  # fator de multiplicação para backoff
-    total_timeout = VIDEO_RENDER_TIMEOUT  # 10 minutos em segundos (poderia vir de configuração também)
+    total_timeout = settings.VIDEO_RENDER_TIMEOUT  # usar o timeout configurado
     start_time = time.time()
 
     delay = initial_delay

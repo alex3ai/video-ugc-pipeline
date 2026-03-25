@@ -23,7 +23,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Mock the LLM configuration error before importing the app
 with patch.dict(os.environ, {
     "HF_API_KEY": "dummy-key-for-testing",
-    "VIDEO_API_KEY": os.environ.get("VIDEO_API_KEY", "dummy-video-key"),
     "GOOGLE_CREDENTIALS_PATH": os.environ.get("GOOGLE_CREDENTIALS_PATH", "./dummy/path")
 }):
     from main import app
@@ -117,25 +116,30 @@ def test_complete_pipeline():
             db.refresh(job)
             print(f"✓ Simulated prompt generation, status: {job.status.value}")
         
-        # Step 5: Send prompt to video API
-        print("\nStep 5: Sending prompt to video API...")
-        # Since we don't have a real video API, we'll simulate the API call
-        with patch('requests.post') as mock_post:
-            mock_response = Mock()
-            mock_response.status_code = 200
-            mock_post.return_value = mock_response
+        # Step 5: Send prompt to video generation service (new approach using Hugging Face Spaces)
+        print("\nStep 5: Sending prompt to video generation service...")
+        # Since actual video generation takes time, we'll simulate the API call
+        with patch('services.video_service.video_service.generate_video_from_prompt') as mock_video_gen:
+            mock_result = {
+                "status": "success",
+                "video_path": "/tmp/fake_video.mp4",
+                "duration": 10,
+                "prompt": job.prompt,
+                "campaign_id": campaign_id
+            }
+            mock_video_gen.return_value = mock_result
             
-            video_api_success = send_prompt_to_video_api(db, job_id)
+            video_gen_success = send_prompt_to_video_api(db, job_id)
             db.refresh(job)
             
-            if video_api_success or job.status == JobStatusEnum.PROCESSING_VIDEO:
-                print(f"✓ Job sent to video API, status: {job.status.value}")
+            if video_gen_success or job.status == JobStatusEnum.PROCESSING_VIDEO:
+                print(f"✓ Job sent to video generation service, status: {job.status.value}")
             else:
-                print(f"✗ Failed to send job to video API, status: {job.status.value}")
+                print(f"✗ Failed to send job to video generation service, status: {job.status.value}")
                 # Simulate successful sending for test
                 update_job_status(db, job_id, JobStatusEnum.PROCESSING_VIDEO)
                 db.refresh(job)
-                print(f"✓ Simulated video API sending, status: {job.status.value}")
+                print(f"✓ Simulated video generation request, status: {job.status.value}")
         
         # Step 6: Simulate video processing completion
         print("\nStep 6: Simulating video processing completion...")

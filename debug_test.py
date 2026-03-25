@@ -52,7 +52,8 @@ def check_environment():
     print("\nChecking environment variables...")
     
     checks = [
-        ("VIDEO_API_KEY", settings.VIDEO_API_KEY),
+        ("HF_API_KEY", settings.HF_API_KEY),  # Updated for new approach
+        ("HF_SPACE_MODEL", settings.HF_SPACE_MODEL),  # New approach
         ("GOOGLE_CREDENTIALS_PATH", settings.GOOGLE_CREDENTIALS_PATH),
         ("DATABASE_URL", settings.DATABASE_URL),
         ("LLAMA_API_KEY or HF_API_KEY", settings.LLAMA_API_KEY or settings.HF_API_KEY)
@@ -62,7 +63,7 @@ def check_environment():
         if value:
             print(f"✓ {name} is set")
         else:
-            print(f"✗ {name} is NOT set")
+            print(f"⚠ {name} is NOT set - this may cause issues")
 
 if __name__ == "__main__":
     check_environment()

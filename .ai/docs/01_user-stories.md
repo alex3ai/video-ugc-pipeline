@@ -24,18 +24,18 @@ Com base em .ai/docs/00_project-description.md, gere user stories no formato aba
   - Edge case: Se o briefing for muito longo ou em formato inválido, o sistema deve retornar erro
 
 ### US02 - Geração de Prompt (Automático)
-- [x] Como sistema, preciso ler o briefing no banco, acionar a API do Gemini pedindo a criação de um "prompt visual em inglês" e salvar o resultado no job. Em caso de falha da API, tentar novamente até 3 vezes.
+- [x] Como sistema, preciso ler o briefing no banco, acionar a API do LLM (Grok ou Hugging Face Llama) pedindo a criação de um "prompt visual em inglês" e salvar o resultado no job. Em caso de falha da API, tentar novamente até 3 vezes.
   Critérios:
-  - Dado que existe um job com briefing válido no banco de dados, quando o sistema detecta um job pendente, então deve acionar a API do Gemini para gerar o prompt
+  - Dado que existe um job com briefing válido no banco de dados, quando o sistema detecta um job pendente, então deve acionar a API do LLM para gerar o prompt
   - Regra de negócio: O sistema deve limitar a 3 tentativas consecutivas em caso de falha na API
-  - Edge case: Se a API do Gemini retornar conteúdo inadequado, o sistema deve marcar o job para revisão humana
+  - Edge case: Se a API do LLM retornar conteúdo inadequado, o sistema deve marcar o job para revisão humana
 
 ### US03 - Renderização de Vídeo (Automático)
-- [x] Como sistema, preciso enviar o prompt para a API de Vídeo e entrar em um loop de verificação inteligente (tratando respostas 503 e estimativas de tempo) até receber o vídeo completo ou atingir timeout de 10 min.
+- [x] Como sistema, preciso enviar o prompt para o serviço de geração de vídeo baseado em Hugging Face Spaces e aguardar o processamento até receber o vídeo completo ou atingir timeout de 10 min. O sistema deve fazer chamadas sequenciais para estender a duração e aplicar transições suaves.
   Critérios:
-  - Dado que existe um prompt visual gerado, quando o sistema envia o prompt para a API de vídeo, então deve iniciar o processo de renderização com polling inteligente
-  - Regra de negócio: O sistema deve implementar backoff exponencial nas requisições de polling
-  - Edge case: Se a API de vídeo retornar erro 503 repetidamente por 10 vezes, o sistema deve cancelar o job
+  - Dado que existe um prompt visual gerado, quando o sistema envia o prompt para o serviço de geração de vídeo, então deve iniciar o processo com chamadas sequenciais e combinação de vídeos
+  - Regra de negócio: O sistema deve implementar tratamento de filas do Hugging Face e combinação de vídeos com transições suaves
+  - Edge case: Se o modelo do Hugging Face estiver em fila por mais de 10 minutos, o sistema deve cancelar o job
 
 ### US04 - Entrega (Automático)
 - [x] Como sistema, ao obter os bytes do vídeo final, devo fazer upload direto para o Google Drive configurado e atualizar o job para `COMPLETED`.

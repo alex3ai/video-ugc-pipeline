@@ -1,97 +1,110 @@
 # Video UGC Pipeline
 
-This project automates the creation of user-generated content (UGC) videos from campaign briefings using AI technology. The pipeline includes:
-- Campaign management via REST API
-- AI-powered prompt generation from briefings
-- Video generation from prompts
-- Automatic upload to Google Drive
+## Overview
+This project automates the creation of user-generated content (UGC) videos for marketing campaigns using AI. It leverages LLMs and text-to-video synthesis to create engaging video content from textual prompts.
 
-## Setup Instructions
+## Features
+- AI-powered campaign brief generation
+- Automatic video script creation
+- Text-to-video synthesis using free Hugging Face Spaces
+- Video concatenation with smooth transitions
+- Integration with Google Drive for asset storage
 
-### 1. Environment Variables
+## Dependencies Installation
+
+To run this project, install the required dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+## Hugging Face Setup
+
+For the text-to-video generation, we use free Hugging Face Spaces. You'll need to:
+
+1. Create an account on [Hugging Face](https://huggingface.co/)
+2. Use the Wan2.1-T2V-1.3B model (or configure another in settings)
+3. Make sure to accept the license for the model you choose
+
+## Configuration
 
 Create a `.env` file in the project root with the following variables:
 
-**Important Note About Video API:** The VIDEO_API_URL should point to a dedicated video generation API (such as Stability AI's video API, RunwayML, Kaiber, etc.) and NOT to a text generation API like Hugging Face or Grok. The system first generates a prompt using the LLM, then sends that prompt to the video generation API to create the actual video.
-
-```bash
-# LLM Configuration (Choose one)
-GROK_API_KEY=your_grok_api_key_here           # For Grok API
-# OR
-HF_API_KEY=your_hf_api_key_here               # Hugging Face API key for free tier
-HF_MODEL=meta-llama/Meta-Llama-3.1-8B-Instruct # Model to use (updated to latest version)
-HF_INFERENCE_API_URL=https://huggingface.co   # For newer HF endpoints
-
-# Video API Configuration (Separate from LLM API!)
-# This should point to a dedicated video generation API, NOT a text generation API
-VIDEO_API_URL=https://your-video-generation-api.com
-VIDEO_API_KEY=your_video_api_key_here
-
-# Google Drive Configuration
-GOOGLE_CREDENTIALS_PATH=path/to/your/credentials.json
+```env
+HF_API_KEY=your_huggingface_api_key
+GOOGLE_CREDENTIALS_PATH=path_to_your_google_credentials_json
 GOOGLE_DRIVE_FOLDER_ID=your_drive_folder_id
-
-# Database Configuration (default uses local SQLite)
-DATABASE_URL=sqlite:///./video_ugc_pipeline.db
-
-# Timeouts and Retries
-VIDEO_RENDER_TIMEOUT=600                      # 10 minutes timeout for video rendering
-REQUEST_TIMEOUT=30                           # 30 seconds for API requests
-MAX_RETRIES=3                                # Number of retries for failed requests
+HF_SPACE_MODEL=Wan-AI/Wan2.1-T2V-1.3B
+VIDEO_DURATION_PER_SEGMENT=5
+CROSSFADE_DURATION=1.0
 ```
 
-### 2. Running the Application
+## Usage
 
-#### Option A: Direct Python Execution
+Run the main application:
+
 ```bash
-# Install dependencies
-pip install fastapi uvicorn sqlalchemy python-dotenv pydantic pydantic-settings requests huggingface_hub
-
-# Run the application
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+python main.py
 ```
 
-#### Option B: Using the Start Script
+Or run individual components for testing:
+
 ```bash
-python start_app.py
+python test_services.py
+python test_api.py
+python test_e2e.py
+python test_state_machine.py
 ```
 
-### 3. API Endpoints
+## Architecture
 
-- `POST /api/campaigns/` - Create a new campaign
-- `GET /api/campaigns/` - List all campaigns
-- `GET /api/jobs/{job_id}` - Get details for a specific job
+The pipeline consists of the following components:
 
-Example request to create a campaign:
-```json
-{
-  "name": "Summer Sale Campaign",
-  "briefing_text": "Create a promotional video for our summer sale featuring beach-themed visuals and upbeat music..."
-}
-```
+- **LLM Service**: Generates campaign briefs and video scripts using either Grok or Llama 3
+- **Video Service**: Creates videos from text prompts using Hugging Face Spaces
+- **Drive Service**: Uploads generated assets to Google Drive
+- **Job Service**: Orchestrates the entire pipeline workflow
 
-### 4. How It Works
+## New Video Generation Approach
 
-The pipeline follows this state machine:
+Our video generation now follows this approach:
 
-1. **PENDING**: Campaign submitted, waiting for processing
-2. **PROMPT_GENERATED**: AI has created a video prompt from the briefing
-3. **PROCESSING_VIDEO**: Video is being generated from the prompt
-4. **COMPLETED**: Video has been generated and uploaded to Google Drive
-5. **FAILED/TIMEOUT/UPLOAD_FAILED**: Processing failed, timed out, or upload failed
+1. Uses the `gradio_client` library to connect to a free Text-to-Video Space on Hugging Face
+2. Makes two sequential calls of 5 seconds each using the same prompt to extend video length
+3. Uses `moviepy` to:
+   - Load the two generated files
+   - Apply a 1-second crossfade transition between them for smooth blending
+   - Export the final 10-second video as `video_final_10s.mp4`
+4. Includes error handling for Hugging Face queues or connection failures
 
-### 5. Troubleshooting
+## Testing
 
-- Make sure all required environment variables are set
-- Check that the database is accessible
-- Verify API keys and endpoints are correct
-- Ensure the worker thread is running (it processes jobs automatically)
-- Look for error messages in the application logs
+The project includes comprehensive tests for different aspects:
 
-### 6. Worker Process
+- `test_services.py`: Tests individual service functionalities (LLM, Video, Drive services)
+- `test_api.py`: Tests API endpoints functionality
+- `test_e2e.py`: End-to-end tests covering the complete pipeline flow
+- `test_state_machine.py`: Tests the job status state machine transitions
 
-The application automatically starts a background worker that:
-- Checks for pending jobs
-- Sends jobs through the state machine
-- Polls external APIs for video processing status
-- Uploads completed videos to Google Drive
+## Error Handling
+
+The system includes robust error handling for:
+- Connection issues with Hugging Face Spaces
+- Model queue backlogs
+- File processing errors
+- Google Drive upload failures
+
+## Contributing
+
+See `AGENTS.md` for detailed information about the agent architecture and contribution guidelines.
+
+## Project Documentation
+
+The project documentation is organized under the [.ai/docs/](file:///c%3A/Users/alex_%5CDesktop%5CPE33%5CProjetos%20PE33%5CProjeto%2021%20-%20Video%20UGC%20Pipeline%5CVideo_UGC_Pipeline/.ai/docs) directory:
+- [00_project-description.md](file:///c%3A/Users/alex_%5CDesktop%5CPE33%5CProjetos%20PE33%5CProjeto%2021%20-%20Video%20UGC%20Pipeline%5CVideo_UGC_Pipeline/.ai/docs/00_project-description.md) - Overall project description
+- [01_user-stories.md](file:///c%3A/Users/alex_%5CDesktop%5CPE33%5CProjetos%20PE33%5CProjeto%2021%20-%20Video%20UGC%20Pipeline%5CVideo_UGC_Pipeline/.ai/docs/01_user-stories.md) - User stories and requirements
+- [02_database-structure.md](file:///c%3A/Users/alex_%5CDesktop%5CPE33%5CProjetos%20PE33%5CProjeto%2021%20-%20Video%20UGC%20Pipeline%5CVideo_UGC_Pipeline/.ai/docs/02_database-structure.md) - Database structure and models
+- [03_project-phases.md](file:///c%3A/Users/alex_%5CDesktop%5CPE33%5CProjetos%20PE33%5CProjeto%2021%20-%20Video%20UGC%20Pipeline%5CVideo_UGC_Pipeline/.ai/docs/03_project-phases.md) - Project phases and milestones
+- [04_video-generation-setup.md](file:///c%3A/Users/alex_%5CDesktop%5CPE33%5CProjetos%20PE33%5CProjeto%2021%20-%20Video%20UGC%20Pipeline%5CVideo_UGC_Pipeline/.ai/docs/04_video-generation-setup.md) - Video generation setup and configuration
+- [05_connector-errors.md](file:///c%3A/Users/alex_%5CDesktop%5CPE33%5CProjetos%20PE33%5CProjeto%2021%20-%20Video%20UGC%20Pipeline%5CVideo_UGC_Pipeline/.ai/docs/05_connector-errors.md) - Common errors and solutions
+- [debugging_summary.md](file:///c%3A/Users/alex_%5CDesktop%5CPE33%5CProjetos%20PE33%5CProjeto%2021%20-%20Video%20UGC%20Pipeline%5CVideo_UGC_Pipeline/.ai/docs/debugging_summary.md) - Debugging information and lessons learned

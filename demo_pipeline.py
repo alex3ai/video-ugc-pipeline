@@ -37,7 +37,7 @@ def demo_pipeline():
     
     checks = [
         ("GROK_API_KEY or HF_API_KEY", settings.GROK_API_KEY or settings.HF_API_KEY),
-        ("VIDEO_API_KEY", settings.VIDEO_API_KEY),
+        ("HF_SPACE_MODEL", settings.HF_SPACE_MODEL),  # Updated for new approach
         ("GOOGLE_CREDENTIALS_PATH", settings.GOOGLE_CREDENTIALS_PATH),
         ("DATABASE_URL", settings.DATABASE_URL)
     ]
@@ -49,6 +49,7 @@ def demo_pipeline():
             print(f"   ⚠ {name} is NOT set")
     
     print(f"\n   Current database: {settings.DATABASE_URL}")
+    print(f"   Current video model: {settings.HF_SPACE_MODEL}")  # Updated info
     
     # Create session
     db = SessionLocal()
@@ -109,18 +110,18 @@ def demo_pipeline():
                 db.refresh(job)
                 print(f"   ✓ Simulated prompt generation, status: {job.status.value}")
         
-        print("\n5. Sending prompt to video API...")
+        print("\n5. Sending prompt to video generation service (Hugging Face Spaces)...")
         
-        # Send the prompt to the video API
+        # Send the prompt to the video generation service (new approach)
         if job.status == JobStatusEnum.PROMPT_GENERATED:
-            # In a real scenario, this would call the actual video API
+            # In a real scenario, this would call the actual Hugging Face Space
             # For demo, we'll simulate this step
-            print("   - Simulating video API call...")
+            print("   - Simulating video generation using Hugging Face Spaces...")
             update_job_status(db, job.id, JobStatusEnum.PROCESSING_VIDEO)
             db.refresh(job)
-            print(f"   ✓ Simulated sending to video API, status: {job.status.value}")
+            print(f"   ✓ Simulated sending to video generation service, status: {job.status.value}")
         else:
-            print(f"   ⚠ Cannot send to video API, job status is {job.status.value}")
+            print(f"   ⚠ Cannot send to video generation service, job status is {job.status.value}")
         
         print("\n6. Simulating video processing completion...")
         
@@ -146,6 +147,7 @@ def demo_pipeline():
         print("PIPELINE DEMONSTRATION COMPLETE")
         print("This shows how the system processes a campaign from start to finish:")
         print("PENDING → PROMPT_GENERATED → PROCESSING_VIDEO → COMPLETED")
+        print("With new approach: Using Hugging Face Spaces for cost-free video generation")
         print("="*70)
         
     except Exception as e:
@@ -169,7 +171,7 @@ def show_system_info():
     print("\nSYSTEM INFORMATION")
     print("-"*30)
     print(f"Database: {settings.DATABASE_URL}")
-    print(f"Video API: {settings.VIDEO_API_URL}")
+    print(f"Video Generation: {settings.HF_SPACE_MODEL}")  # Updated for new approach
     print(f"LLM Provider: {'Grok' if settings.GROK_API_KEY else 'Hugging Face' if settings.HF_API_KEY else 'None configured'}")
     print(f"Google Drive: {'Configured' if settings.GOOGLE_CREDENTIALS_PATH else 'Not configured'}")
     
@@ -180,8 +182,10 @@ def show_system_info():
 
 
 if __name__ == "__main__":
-    print("Video UGC Pipeline Demo")
-    print("=======================")
+    print("Video UGC Pipeline Demo - NEW APPROACH")
+    print("=====================================")
+    print("Using free Hugging Face Spaces for video generation")
+    print("")
     
     show_system_info()
     demo_pipeline()

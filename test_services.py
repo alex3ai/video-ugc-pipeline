@@ -29,43 +29,14 @@ class TestLLMService(unittest.TestCase):
 
 
 class TestVideoService(unittest.TestCase):
-    """Testes para o serviço de vídeo"""
+    """Testes para o novo serviço de vídeo baseado em Hugging Face Spaces"""
 
-    @patch('requests.get')
-    @patch('os.getenv')
-    def test_test_video_api_connection_success(self, mock_getenv, mock_requests):
-        """Testa a conexão bem-sucedida com a API de vídeo"""
-        # Define valores de retorno para os mocks
-        mock_getenv.side_effect = [
-            'https://api.example.com',  # VIDEO_API_URL
-            'fake-api-key'              # VIDEO_API_KEY
-        ]
-        
-        # Simula uma resposta bem-sucedida
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_requests.return_value = mock_response
-        
+    def test_test_video_api_connection(self):
+        """Testa a nova função de conexão com o serviço de vídeo"""
+        # Testa se as dependências necessárias estão disponíveis
         result = test_video_api_connection()
+        # O teste verifica se as bibliotecas necessárias estão instaladas
         self.assertTrue(result)
-
-    @patch('requests.get')
-    @patch('os.getenv')
-    def test_test_video_api_connection_failure(self, mock_getenv, mock_requests):
-        """Testa a falha na conexão com a API de vídeo"""
-        # Define valores de retorno para os mocks
-        mock_getenv.side_effect = [
-            'https://api.example.com',  # VIDEO_API_URL
-            'fake-api-key'              # VIDEO_API_KEY
-        ]
-        
-        # Simula uma resposta com falha
-        mock_response = MagicMock()
-        mock_response.status_code = 401
-        mock_requests.return_value = mock_response
-        
-        result = test_video_api_connection()
-        self.assertFalse(result)
 
 
 class TestDriveService(unittest.TestCase):

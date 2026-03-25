@@ -51,9 +51,22 @@ Esta fase implementa a interface com o usuário e finaliza a pipeline completa.
 - [x] Integrar `drive_service.py` com upload do vídeo gerado para Google Drive
 - [x] Implementar persistência do link do vídeo no campo video_url do job
 - [x] Implementar atualização de status para COMPLETED após upload no Drive
-- [x] Adicionar tratamento de falhas no upload para Google Drive (3 tentativas)
+- [x] Implementar tratamento de falhas no upload para Google Drive (3 tentativas)
 - [x] Implementar armazenamento temporário em caso de falha de upload
 - [x] Testar fluxo completo: briefing → prompt (com Grok ou Llama 3) → vídeo → upload → link
 - [x] Implementar fallback automático para provedor gratuito quando o pago não está disponível
 - [x] Realizar testes de ponta a ponta para validação final
 - [x] Documentar a API com exemplos de uso
+
+## Fase 3: Atualização da Geração de Vídeo
+Esta fase substitui a abordagem anterior de geração de vídeo por uma nova baseada em modelos gratuitos do Hugging Face para reduzir custos e aumentar a flexibilidade.
+
+### Tarefas pequenas:
+- [x] Substituir a integração com API proprietária por uma baseada em Hugging Face Spaces
+- [x] Implementar uso da biblioteca `gradio_client` para conexão com espaços de Text-to-Video gratuitos
+- [x] Implementar lógica para gerar vídeos mais longos com chamadas sequenciais de 5 segundos
+- [x] Utilizar `moviepy` para combinar vídeos e aplicar transições suaves
+- [x] Incluir tratamento de erros para filas do Hugging Face ou falhas de conexão
+- [x] Atualizar documentação com novos requisitos e instruções de configuração
+- [x] Atualizar testes para refletir a nova implementação de geração de vídeo
+- [x] Remover arquivos e configurações obsoletas relacionadas à antiga abordagem de vídeo

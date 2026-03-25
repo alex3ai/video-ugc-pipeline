@@ -14,7 +14,9 @@ def install_requirements():
         "requests",
         "python-dotenv",
         "pydantic-settings",
-        "uvicorn"
+        "uvicorn",
+        "gradio-client",
+        "moviepy"
     ]
     
     for req in requirements:
@@ -35,7 +37,8 @@ def main():
     # Check environment variables
     print("\nChecking environment variables:")
     env_vars = [
-        ("VIDEO_API_KEY", os.environ.get('VIDEO_API_KEY')),
+        ("HF_API_KEY", os.environ.get('HF_API_KEY')),
+        ("HF_SPACE_MODEL", os.environ.get('HF_SPACE_MODEL', 'Wan-AI/Wan2.1-T2V-1.3B')),  # New approach
         ("GOOGLE_CREDENTIALS_PATH", os.environ.get('GOOGLE_CREDENTIALS_PATH')),
         ("LLAMA_API_KEY or HF_API_KEY", os.environ.get('LLAMA_API_KEY') or os.environ.get('HF_API_KEY')),
         ("DATABASE_URL", os.environ.get('DATABASE_URL', 'sqlite:///./video_ugc_pipeline.db'))
@@ -53,6 +56,7 @@ def main():
     print("- List campaigns at /api/campaigns/")
     print("- Access the worker logs in the console")
     print("- Visit http://localhost:8000 for API documentation")
+    print("- The system will now generate videos using free Hugging Face Spaces")
     
     # Start the application
     subprocess.run([sys.executable, "-m", "uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"])

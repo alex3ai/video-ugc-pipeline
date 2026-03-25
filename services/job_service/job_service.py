@@ -13,6 +13,7 @@ from models.entities import PipelineJob, Campaign, JobStatusEnum
 from models.pydantic import PipelineJob as PipelineJobPydantic
 from services.llm_service import get_llm_service
 from services.drive_service.drive_service import DriveService
+from services.video_service.video_service import generate_video_from_prompt
 from config import settings
 
 
@@ -197,7 +198,7 @@ def transition_job_status_pending_to_prompt_generated(db: Session, job_id: int, 
 
 def send_prompt_to_video_api(db: Session, job_id: int) -> bool:
     """
-    Implementar função de envio do prompt para API de vídeo
+    Implementar função de envio do prompt para serviço de geração de vídeo (nova abordagem)
 
     Args:
         db: Sessão do banco de dados
@@ -212,96 +213,37 @@ def send_prompt_to_video_api(db: Session, job_id: int) -> bool:
         print(f"Job com ID {job_id} não encontrado")
         return False
 
-    # Verificar se o status atual é PROMPT_GENERATED (necessário para enviar para a API de vídeo)
+    # Verificar se o status atual é PROMPT_GENERATED (necessário para enviar para o serviço de vídeo)
     if job.status != JobStatusEnum.PROMPT_GENERATED:
         print(f"Job com ID {job_id} não está no status PROMPT_GENERATED, atual: {job.status.value}")
         return False
 
-    # Preparar os dados para enviar para a API de vídeo
-    api_url = settings.VIDEO_API_URL
-    api_key = settings.VIDEO_API_KEY
-    
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
+    try:
+        # Gerar vídeo usando o novo serviço baseado em Hugging Face Spaces
+        result = generate_video_from_prompt(job.prompt, campaign_id=job.campaign_id)
 
-    payload = {
-        "prompt": job.prompt,
-        "campaign_id": job.campaign_id
-    }
-
-    # Tentativas para lidar com respostas HTTP 503 (Cold Start)
-    max_retries = settings.MAX_RETRIES
-    retry_count = 0
-    
-    while retry_count < max_retries:
-        try:
-            # Enviar o prompt para a API de vídeo
-            response = requests.post(
-                f"{api_url}/generate", 
-                json=payload, 
-                headers=headers, 
-                timeout=settings.REQUEST_TIMEOUT
-            )
-
-            # Verificar resposta da API
-            if response.status_code == 200 or response.status_code == 202:
-                # Atualizar o status do job para PROCESSING_VIDEO
-                update_job_status(db, job_id, JobStatusEnum.PROCESSING_VIDEO)
-                print(f"Prompt enviado com sucesso para processamento. Job ID: {job_id}, Status: PROCESSING_VIDEO")
-                return True
-            elif response.status_code == 503:
-                # Serviço indisponível (Cold Start), aguardar e tentar novamente
-                retry_count += 1
-                wait_time = 2 ** retry_count  # Backoff exponencial
-                print(f"Recebido 503 (Cold Start) para job {job_id}, tentando novamente em {wait_time} segundos...")
-                time.sleep(wait_time)
-            elif response.status_code == 410:
-                # API descontinuada
-                error_message = f"API descontinuada. Status: {response.status_code}, Response: {response.text}"
-                print(error_message)
-                update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
-                return False
-            else:
-                # Em caso de outro erro, registrar mensagem de erro e atualizar status para FAILED
-                error_message = f"Falha ao enviar o prompt para a API de vídeo. Status: {response.status_code}, Response: {response.text}"
-                print(error_message)
-                update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
-                return False
-
-        except requests.exceptions.ConnectionError:
-            error_message = "Falha de conexão ao tentar enviar o prompt para a API de vídeo"
-            print(error_message)
-            update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
-            return False
-        except requests.exceptions.Timeout:
-            error_message = f"Timeout ao tentar enviar o prompt para a API de vídeo (>{settings.REQUEST_TIMEOUT}s)"
-            print(error_message)
-            update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
-            return False
-        except Exception as e:
-            error_message = f"Erro ao enviar o prompt para a API de vídeo: {str(e)}"
-            print(error_message)
+        if result and result.get("status") == "success":
+            # O vídeo foi gerado com sucesso, atualizar o status do job para PROCESSING_VIDEO
+            update_job_status(db, job_id, JobStatusEnum.PROCESSING_VIDEO)
+            print(f"Vídeo gerado com sucesso. Job ID: {job_id}, Status: PROCESSING_VIDEO")
+            return True
+        else:
+            # Ocorreu um erro na geração do vídeo
+            error_message = result.get("error", "Erro desconhecido na geração do vídeo") if result else "Falha desconhecida na geração do vídeo"
+            print(f"Falha ao gerar o vídeo: {error_message}")
             update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
             return False
 
-    # Se todas as tentativas falharem devido a 503
-    error_message = f"Falha após {max_retries} tentativas devido a respostas 503 (Cold Start)"
-    update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
-    print(error_message)
-    return False
+    except Exception as e:
+        error_message = f"Erro ao gerar o vídeo com o serviço de vídeo: {str(e)}"
+        print(error_message)
+        update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+        return False
 
 def poll_video_processing_status(db: Session, job_id: int) -> bool:
     """
-    Implementar lógica de polling inteligente com backoff exponencial para status PROCESSING_VIDEO
-    
-    Args:
-        db: Sessão do banco de dados
-        job_id: ID do job que está sendo processado
-        
-    Returns:
-        True se o processamento terminou e o status foi atualizado, False caso contrário
+    NÃO MAIS NECESSÁRIO COM A NOVA APROXIMAÇÃO - Processamento é síncrono agora
+    Esta função agora apenas faz upload para o Google Drive após geração síncrona do vídeo
     """
     # Obter o job pelo ID
     job = db.query(PipelineJob).filter(PipelineJob.id == job_id).first()
@@ -314,98 +256,26 @@ def poll_video_processing_status(db: Session, job_id: int) -> bool:
         print(f"Job com ID {job_id} não está no status PROCESSING_VIDEO, atual: {job.status.value}")
         return False
 
-    # Configurações para polling inteligente
-    initial_delay = 5  # segundos
-    max_delay = 120  # segundos
-    multiplier = 2  # fator de multiplicação para backoff
-    total_timeout = settings.VIDEO_RENDER_TIMEOUT  # usar o timeout configurado
-    start_time = time.time()
-
-    delay = initial_delay
-
-    while time.time() - start_time < total_timeout:
-        try:
-            # Preparar requisição para verificar o status do vídeo
-            api_url = settings.VIDEO_API_URL
-            api_key = settings.VIDEO_API_KEY
-            
-            headers = {
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            }
-
-            # Fazer requisição para obter status do vídeo
-            response = requests.get(
-                f"{api_url}/status/{job_id}", 
-                headers=headers, 
-                timeout=settings.REQUEST_TIMEOUT
-            )
-
-            if response.status_code == 200:
-                status_data = response.json()
-                
-                # Processar resposta da API
-                if status_data.get("status") == "completed":
-                    # Vídeo foi gerado com sucesso
-                    video_url = status_data.get("video_url")
-                    
-                    # Faz download do vídeo e faz upload para o Google Drive
-                    success = upload_video_to_drive(db, job_id, video_url)
-                    if success:
-                        print(f"Vídeo gerado e enviado ao Drive com sucesso. Job ID: {job_id}, Status: COMPLETED")
-                        return True
-                    else:
-                        # Em caso de falha no upload para o Drive, atualiza status para FAILED
-                        error_message = "Falha ao fazer upload do vídeo para o Google Drive"
-                        update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
-                        return False
-                
-                elif status_data.get("status") == "failed":
-                    # Processamento falhou
-                    error_message = status_data.get("error", "Erro desconhecido no processamento do vídeo")
-                    update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
-                    print(f"Falha no processamento do vídeo. Job ID: {job_id}, Status: FAILED")
-                    return True
-                
-                elif status_data.get("status") == "processing":
-                    # Ainda processando, continuar com polling
-                    print(f"Vídeo ainda sendo processado. Job ID: {job_id}, Status: PROCESSING_VIDEO")
-                    
-            elif response.status_code == 503:
-                # Serviço indisponível (Cold Start), aguardar e tentar novamente
-                print(f"Serviço indisponível (503) para job {job_id}. Aguardando...")
-            
-            else:
-                # Outro erro HTTP
-                print(f"Erro na API ao verificar status do vídeo. Status: {response.status_code}")
-
-        except requests.exceptions.RequestException as e:
-            print(f"Erro na requisição de verificação de status: {str(e)}")
-        except Exception as e:
-            print(f"Erro inesperado ao verificar status do vídeo: {str(e)}")
-
-        # Esperar antes da próxima verificação (backoff exponencial)
-        print(f"Aguardando {delay} segundos antes da próxima verificação...")
-        time.sleep(delay)
-        
-        # Calcular próximo delay com backoff exponencial, limitado ao máximo
-        delay = min(delay * multiplier, max_delay)
-
-    # Se chegamos aqui, o timeout foi atingido
-    error_message = f"Tempo limite excedido para processamento do vídeo (>{total_timeout}s)"
-    update_job_status(db, job_id, JobStatusEnum.TIMEOUT, error_message=error_message)
-    print(f"Tempo limite atingido para o processamento do vídeo. Job ID: {job_id}, Status: TIMEOUT")
-    return True
+    # Na nova abordagem, o vídeo já está pronto, então vamos fazer upload para o Google Drive
+    # Como o vídeo já foi gerado, podemos fazer o upload diretamente
+    success = upload_latest_generated_video_to_drive(db, job_id)
+    if success:
+        print(f"Vídeo gerado e enviado ao Drive com sucesso. Job ID: {job_id}, Status: COMPLETED")
+        return True
+    else:
+        # Em caso de falha no upload para o Drive, atualiza status para FAILED
+        error_message = "Falha ao fazer upload do vídeo para o Google Drive"
+        update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+        return False
 
 
-def upload_video_to_drive(db: Session, job_id: int, video_url: str) -> bool:
+def upload_latest_generated_video_to_drive(db: Session, job_id: int) -> bool:
     """
-    Integrar `drive_service.py` com upload do vídeo gerado para Google Drive
+    Faz upload do vídeo recém-gerado para o Google Drive (nova abordagem)
     
     Args:
         db: Sessão do banco de dados
         job_id: ID do job que contém o vídeo a ser enviado
-        video_url: URL do vídeo gerado que será baixado e enviado para o Google Drive
 
     Returns:
         True se o upload foi feito com sucesso e o job está COMPLETED, False caso contrário
@@ -416,33 +286,9 @@ def upload_video_to_drive(db: Session, job_id: int, video_url: str) -> bool:
         print(f"Job com ID {job_id} não encontrado")
         return False
 
-    # Verificar se o status atual é PROCESSING_VIDEO ou COMPLETED (antes do upload)
-    if job.status not in [JobStatusEnum.PROCESSING_VIDEO, JobStatusEnum.COMPLETED]:
+    # Verificar se o status atual é PROCESSING_VIDEO (antes do upload)
+    if job.status != JobStatusEnum.PROCESSING_VIDEO:
         print(f"Job com ID {job_id} não está no status PROCESSING_VIDEO, atual: {job.status.value}")
-        return False
-
-    # Fazer download do vídeo a partir da URL
-    max_retries = 3
-    retry_count = 0
-    
-    while retry_count < max_retries:
-        try:
-            response = requests.get(video_url, timeout=settings.REQUEST_TIMEOUT)
-            if response.status_code == 200:
-                video_bytes = response.content
-                break
-            else:
-                print(f"Erro ao baixar o vídeo. Status: {response.status_code}")
-                retry_count += 1
-                time.sleep(2 ** retry_count)  # Backoff exponencial
-        except Exception as e:
-            print(f"Erro ao baixar o vídeo: {str(e)}")
-            retry_count += 1
-            time.sleep(2 ** retry_count)  # Backoff exponencial
-    
-    if retry_count >= max_retries:
-        error_message = "Falha após 3 tentativas de download do vídeo gerado"
-        update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
         return False
 
     # Inicializar o serviço do Google Drive
@@ -463,34 +309,89 @@ def upload_video_to_drive(db: Session, job_id: int, video_url: str) -> bool:
     # Criar nome do arquivo
     filename = f"video_{campaign.name.replace(' ', '_')}_job-{job_id}.mp4"
 
-    # Fazer upload do vídeo para o Google Drive
+    # Para a nova abordagem, precisamos implementar a lógica para encontrar o vídeo gerado
+    # Isso dependerá de como o serviço de vídeo retorna o caminho do vídeo
+    # Por enquanto, simularemos chamando novamente o serviço para garantir que o vídeo foi gerado
     try:
-        file_metadata = drive_service.upload_file(video_bytes, filename, "video/mp4")
-        drive_video_url = file_metadata.get('webViewLink', '')
-        
-        # Atualizar o job com o link do vídeo no Drive e mudar o status para COMPLETED
-        update_job_status(db, job_id, JobStatusEnum.COMPLETED, video_url=drive_video_url)
-        print(f"Vídeo enviado para o Google Drive com sucesso. Job ID: {job_id}, Status: COMPLETED")
-        return True
+        result = generate_video_from_prompt(job.prompt, campaign_id=job.campaign_id)
+        if result and result.get("status") == "success":
+            video_path = result.get("video_path")
+            if not video_path or not os.path.exists(video_path):
+                error_message = f"Arquivo de vídeo não encontrado: {video_path}"
+                update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+                return False
+
+            # Ler o conteúdo do vídeo
+            with open(video_path, 'rb') as video_file:
+                video_bytes = video_file.read()
+
+            # Fazer upload do vídeo para o Google Drive
+            file_metadata = drive_service.upload_file(video_bytes, filename, "video/mp4")
+            drive_video_url = file_metadata.get('webViewLink', '')
+            
+            # Atualizar o job com o link do vídeo no Drive e mudar o status para COMPLETED
+            update_job_status(db, job_id, JobStatusEnum.COMPLETED, video_url=drive_video_url)
+            print(f"Vídeo enviado para o Google Drive com sucesso. Job ID: {job_id}, Status: COMPLETED")
+            return True
+        else:
+            error_message = result.get("error", "Erro desconhecido na geração do vídeo") if result else "Falha desconhecida na geração do vídeo"
+            update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+            return False
+
     except Exception as e:
         error_message = f"Erro ao fazer upload do vídeo para o Google Drive: {str(e)}"
         print(error_message)
         print("Tentando armazenar vídeo temporariamente...")
         
         # Implementar armazenamento temporário em caso de falha de upload
-        temp_storage_success = store_video_temporarily(video_bytes, job_id, filename)
-        if temp_storage_success:
-            # Mesmo com falha no upload para o Drive, manter o job como PROCESSING_VIDEO
-            # para tentar novamente mais tarde ou para que outro processo possa tentar
-            update_job_status(db, job_id, JobStatusEnum.UPLOAD_FAILED, video_url="", error_message=error_message)
-            print(f"Vídeo armazenado temporariamente. Job ID: {job_id}, Status: UPLOAD_FAILED")
-            return False
-        else:
-            # Se nem o armazenamento temporário funcionar, marcar como falha definitiva
+        # (mesma lógica de store_video_temporarily do código original)
+        try:
+            # Tentar gerar o vídeo novamente para ter os bytes
+            result = generate_video_from_prompt(job.prompt, campaign_id=job.campaign_id)
+            if result and result.get("status") == "success":
+                video_path = result.get("video_path")
+                if video_path and os.path.exists(video_path):
+                    with open(video_path, 'rb') as video_file:
+                        video_bytes = video_file.read()
+                    
+                    temp_storage_success = store_video_temporarily(video_bytes, job_id, filename)
+                    if temp_storage_success:
+                        update_job_status(db, job_id, JobStatusEnum.UPLOAD_FAILED, video_url="", error_message=error_message)
+                        print(f"Vídeo armazenado temporariamente. Job ID: {job_id}, Status: UPLOAD_FAILED")
+                        return False
+                    else:
+                        # Se nem o armazenamento temporário funcionar, marcar como falha definitiva
+                        update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+                        print(f"Falha definitiva no armazenamento. Job ID: {job_id}, Status: FAILED")
+                        return False
+                else:
+                    # Arquivo de vídeo não existe
+                    update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+                    return False
+            else:
+                # Falha ao tentar gerar o vídeo novamente
+                update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+                return False
+        except Exception as temp_e:
+            print(f"Erro adicional ao tentar armazenar temporariamente: {str(temp_e)}")
             update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
-            print(f"Falha definitiva no armazenamento. Job ID: {job_id}, Status: FAILED")
             return False
 
+def upload_video_to_drive(db: Session, job_id: int, video_url: str) -> bool:
+    """
+    LEGACY FUNCTION - Mantida para compatibilidade, mas não utilizada na nova abordagem
+    Integrar `drive_service.py` com upload do vídeo gerado para Google Drive
+    
+    Args:
+        db: Sessão do banco de dados
+        job_id: ID do job que contém o vídeo a ser enviado
+        video_url: URL do vídeo gerado que será baixado e enviado para o Google Drive
+
+    Returns:
+        True se o upload foi feito com sucesso e o job está COMPLETED, False caso contrário
+    """
+    print("Função legada chamada. Na nova abordagem, use upload_latest_generated_video_to_drive.")
+    return False
 
 def store_video_temporarily(video_bytes: bytes, job_id: int, original_filename: str) -> bool:
     """

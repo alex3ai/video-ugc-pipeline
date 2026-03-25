@@ -199,3 +199,56 @@ python -c "import sqlite3; conn = sqlite3.connect('video_ugc_pipeline.db'); conn
 - **Solução:**
   - Remover import desnecessário da função inexistente
   - Confirmar que a funcionalidade de upload para o Google Drive é coberta por outras funções já existentes
+
+## Sumário de Debugging - Video_UGC_Pipeline
+
+## Data: 25/03/2026
+
+### Mudança na Arquitetura de Geração de Vídeo
+
+#### Antes:
+- Usava uma API proprietária para geração de vídeo que exigia pagamento
+- Geração de vídeos de curta duração com chamada única
+- Arquitetura baseada em requisições HTTP para uma API externa
+
+#### Depois:
+- Substituído por uma solução baseada em modelos gratuitos do Hugging Face
+- Geração de vídeos mais longos com chamadas sequenciais de 5 segundos
+- Combinação dos vídeos com transições suaves usando MoviePy
+- Arquitetura baseada em clientes Gradio para acessar espaços públicos
+
+### Principais Alterações Realizadas
+
+1. **services/video_service/video_service.py**:
+   - Substituída toda a implementação para usar `gradio_client` e `moviepy`
+   - Implementada lógica de chamadas sequenciais para estender duração do vídeo
+   - Adicionado tratamento de erro para filas do Hugging Face
+
+2. **config.py**:
+   - Adicionadas novas variáveis de configuração para o novo sistema
+   - Atualizados comentários para refletir a nova abordagem
+
+3. **Documentação**:
+   - Atualizados documentos em `.ai/docs/` para refletir a nova arquitetura
+   - Adicionado documento explicativo sobre a nova abordagem de geração de vídeo
+
+### Problemas Encontrados Durante a Migração
+
+1. **Compatibilidade de dependências**:
+   - Necessidade de instalar `gradio_client` e `moviepy`
+   - Problemas com versões do FFmpeg para processamento de vídeo
+
+2. **Tempo de espera nas filas do Hugging Face**:
+   - Modelos populares podem ter filas longas
+   - Implementação de tratamento adequado de timeouts necessário
+
+3. **Qualidade do vídeo gerado**:
+   - Variações na qualidade entre diferentes modelos T2V do Hugging Face
+   - Avaliação de modelos como `Wan-AI/Wan2.1-T2V-1.3B` vs alternativas
+
+### Lições Aprendidas
+
+- A abordagem de chamadas sequenciais permite estender a duração dos vídeos gerados gratuitamente
+- O uso de bibliotecas como `moviepy` permite pós-processamento sofisticado
+- A combinação de transições suaves melhora significativamente a qualidade percebida
+- O tratamento adequado de filas do Hugging Face é essencial para experiência do usuário

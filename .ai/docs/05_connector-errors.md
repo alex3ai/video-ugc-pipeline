@@ -1,81 +1,42 @@
-# Erros Comuns dos Conectores
+# Erros Comuns e Soluções - Conectores
 
-## Configuração Geral
+## LLM Service (Grok ou Hugging Face Llama)
 
-### Erro: `Erros de configuração encontrados: GEMINI_API_KEY não está definida`
-- **Causa:** Arquivo `.env` não está sendo carregado automaticamente
-- **Solução:**
-  1. Instalar `python-dotenv`: `pip install python-dotenv`
-  2. Adicionar `from dotenv import load_dotenv` e `load_dotenv()` no início do `config.py`
-  3. Criar arquivo `.env` na raiz do projeto baseado em `.env.example`
-  4. Reiniciar o servidor após criar/editar `.env`
+### Erros de API Key
+- **Erro**: `Invalid API key`
+- **Solução**: Verifique se as variáveis de ambiente `GROK_API_KEY`, `LLAMA_API_KEY` ou `HF_API_KEY` estão corretamente configuradas
 
-### Erro: `ValueError: Erros de configuração encontrados: ...`
-- **Causa:** Uma ou mais variáveis obrigatórias não estão definidas no `.env`
-- **Solução:**
-  1. Verificar `.env.example` para lista completa de variáveis
-  2. Para desenvolvimento local, usar valores dummy (ex: `dummy_key_for_local_test`)
-  3. Validar com: `python -c "from config import settings; print(settings.dict())"`
+### Erros de Conexão
+- **Erro**: `Connection timeout` ou `Network error`
+- **Solução**: Verifique sua conexão com a internet e os limites de taxa da API
 
----
+## Video Service (Hugging Face Spaces - Nova Abordagem)
 
-## LLM Service (Google Gemini)
+### Erros de Conexão com o Hugging Face Space
+- **Erro**: `Connection error` ao acessar o modelo T2V
+- **Solução**: Verifique se o modelo está disponível no Hugging Face Space e se você aceitou os termos de uso
 
-### Erro: `API key not valid`
-- **Causa:** Chave de API ausente, expirada ou inválida
-- **Solução:** 
-  1. Verificar se `GEMINI_API_KEY` está definida no `.env`
-  2. Validar chave no [Google AI Studio](https://makersuite.google.com/app/apikey)
-  3. Renovar chave se expirada
+### Erros de Fila no Hugging Face
+- **Erro**: `Queue timeout` ou `Model is currently loading`
+- **Solução**: Espere alguns minutos e tente novamente, ou selecione um modelo diferente em `HF_SPACE_MODEL`
 
-### Erro: `400 API key not valid. Please pass a valid API key`
-- **Causa:** Formato da chave incorreto ou permissões insuficientes
-- **Solução:** 
-  1. Remover espaços em branco ao copiar a chave
-  2. Verificar se a API Gemini está habilitada no projeto Google Cloud
+### Erros de Processamento de Vídeo
+- **Erro**: `MoviePy error` durante combinação de vídeos
+- **Solução**: Verifique se o FFmpeg está instalado e disponível no PATH do sistema
 
-### Erro: `models/gemini-pro is not found for API version v1beta`
-- **Causa:** Modelo indisponível ou versão de API desatualizada
-- **Solução:** 
-  1. Usar `gemini-1.5-flash` ou `gemini-1.5-pro` como alternativa
-  2. Atualizar pacote `google-generativeai` para versão mais recente
-
-### Erro: `Environment variable GOOGLE_API_USE_CLIENT_CERTIFICATE must be either true or false`
-- **Causa:** Variável de ambiente não definida ou com valor inválido
-- **Solução:** Adicionar ao `.env`: `GOOGLE_API_USE_CLIENT_CERTIFICATE=false`
-
----
-
-## Video Service (API de Vídeo)
-
-### Erro: `401 Unauthorized`
-- **Causa:** Chave de API inválida ou ausente no header
-- **Solução:** 
-  1. Verificar `VIDEO_API_KEY` no `.env`
-  2. Confirmar formato do header `Authorization: Bearer {api_key}`
-
-### Erro: `403 Forbidden`
-- **Causa:** API key válida mas sem permissões para o endpoint
-- **Solução:** 
-  1. Verificar escopos/permissões da chave no dashboard da API
-  2. Confirmar se o plano atual permite acesso ao endpoint
-
-### Erro: `503 Service Unavailable (Cold Start)`
-- **Causa:** API em inicialização ou sobrecarregada
-- **Solução:** 
-  1. Implementar retry com backoff exponencial (já previsto no `config.py`)
-  2. Aguardar 30-60 segundos antes de retentar
-
-### Erro: `Connection timeout`
-- **Causa:** URL inválida ou serviço indisponível
-- **Solução:** 
-  1. Verificar `VIDEO_API_URL` no `.env`
-  2. Testar conectividade com `curl {VIDEO_API_URL}/test`
-  3. Ajustar `REQUEST_TIMEOUT` no `.env` se necessário
-
----
+### Erros de Dependências
+- **Erro**: `ModuleNotFoundError` para `gradio_client` ou `moviepy`
+- **Solução**: Execute `pip install -r requirements.txt` para instalar as dependências
 
 ## Drive Service (Google Drive)
+
+### Erros de Credenciais
+- **Erro**: `Invalid credentials` ou `Credentials file not found`
+- **Solução**: Verifique se `GOOGLE_CREDENTIALS_PATH` aponta para o arquivo JSON de credenciais válido
+
+### Erros de Permissão
+- **Erro**: `Insufficient permissions`
+- **Solução**: Certifique-se de que a conta de serviço tem permissões de escrita na pasta especificada
 
 ### Erro: `google.auth.exceptions.DefaultCredentialsError`
 - **Causa:** Arquivo de credenciais não encontrado ou inválido

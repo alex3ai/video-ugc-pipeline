@@ -17,6 +17,7 @@ class JobStatus(str, Enum):
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
     TIMEOUT = "TIMEOUT"
+    UPLOAD_FAILED = "UPLOAD_FAILED"
 
 
 class Campaign(BaseModel):

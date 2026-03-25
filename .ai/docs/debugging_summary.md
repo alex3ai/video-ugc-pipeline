@@ -170,3 +170,32 @@ python -c "from config import settings; print(settings.dict())"
 ```bash
 python -c "import sqlite3; conn = sqlite3.connect('video_ugc_pipeline.db'); conn.row_factory = sqlite3.Row; rows = conn.execute('SELECT name FROM sqlite_master WHERE type=\"table\"').fetchall(); print([r[0] for r in rows])"
 ```
+
+## 5. Novas Soluções Implementadas
+
+### ✅ [2026-03-25] Falha no teste e2e por função ausente get_llm_service
+- **Problema:** Erro `ImportError: cannot import name 'get_llm_service' from 'services.llm_service'`
+- **Causa:** A função `get_llm_service` era utilizada em `services/job_service/job_service.py` mas não estava definida em `services/llm_service/__init__.py`
+- **Solução:**
+  - Adicionar função `get_llm_service()` para retornar uma instância singleton do LLMService
+  - Certificar que o serviço LLM é inicializado corretamente quando necessário
+
+### ✅ [2026-03-25] Falha no teste de serviços por função ausente test_llm_connection
+- **Problema:** Erro `ImportError: cannot import name 'test_llm_connection' from 'services.llm_service'`
+- **Causa:** A função `test_llm_connection` era utilizada em `test_services.py` mas não estava definida em `services/llm_service/__init__.py`
+- **Solução:**
+  - Adicionar função `test_llm_connection()` que encapsula a chamada para o método `test_connection` do LLMService
+
+### ✅ [2026-03-25] Erro de dupla declaração de app FastAPI em main.py
+- **Problema:** A aplicação FastAPI era declarada duas vezes em `main.py`, causando conflitos
+- **Causa:** Código duplicado durante desenvolvimento resultou em dois objetos `app = FastAPI(...)` na mesma aplicação
+- **Solução:**
+  - Remover declaração duplicada do objeto FastAPI
+  - Manter apenas uma instância e adicionar o lifespan corretamente à única declaração
+
+### ✅ [2026-03-25] Falha no teste e2e por função ausente upload_video_to_drive_and_mark_completed
+- **Problema:** Erro `ImportError: cannot import name 'upload_video_to_drive_and_mark_completed'`
+- **Causa:** A função era referenciada em `test_e2e.py` mas não existia em `services/job_service/job_service.py`
+- **Solução:**
+  - Remover import desnecessário da função inexistente
+  - Confirmar que a funcionalidade de upload para o Google Drive é coberta por outras funções já existentes

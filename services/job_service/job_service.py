@@ -257,6 +257,12 @@ def send_prompt_to_video_api(db: Session, job_id: int) -> bool:
                 wait_time = 2 ** retry_count  # Backoff exponencial
                 print(f"Recebido 503 (Cold Start) para job {job_id}, tentando novamente em {wait_time} segundos...")
                 time.sleep(wait_time)
+            elif response.status_code == 410:
+                # API descontinuada
+                error_message = f"API descontinuada. Status: {response.status_code}, Response: {response.text}"
+                print(error_message)
+                update_job_status(db, job_id, JobStatusEnum.FAILED, error_message=error_message)
+                return False
             else:
                 # Em caso de outro erro, registrar mensagem de erro e atualizar status para FAILED
                 error_message = f"Falha ao enviar o prompt para a API de vídeo. Status: {response.status_code}, Response: {response.text}"

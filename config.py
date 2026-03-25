@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     HF_API_KEY: str = os.getenv("HF_API_KEY", "")  # Alternativa padrão do Hugging Face
     LLAMA_API_BASE_URL: str = os.getenv("LLAMA_API_BASE_URL", 
         "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct")
+    # Updated to use the correct router URL as per the error message
+    HF_INFERENCE_API_URL: str = os.getenv("HF_INFERENCE_API_URL", 
+        "https://router.huggingface.co")
 
     # Configurações para a API de vídeo
     VIDEO_API_URL: str = os.getenv("VIDEO_API_URL", "https://api.example.com")

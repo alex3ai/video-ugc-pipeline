@@ -15,6 +15,7 @@ class JobStatusEnum(Enum):
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
     TIMEOUT = "TIMEOUT"
+    UPLOAD_FAILED = "UPLOAD_FAILED"
 
 
 class Campaign(Base):

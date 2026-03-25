@@ -1,5 +1,6 @@
 from typing import Optional
 import os
+import requests
 from dotenv import load_dotenv
 from huggingface_hub import InferenceClient
 
@@ -19,11 +20,9 @@ class LLMService:
             hf_token = os.getenv("HF_TOKEN") or os.getenv("LLAMA_API_KEY") or os.getenv("HF_API_KEY")
             if hf_token:
                 self.provider = "huggingface"
-                self.client = InferenceClient(
-                    token=hf_token
-                )
-                self.model = os.getenv("HF_MODEL", "meta-llama/Llama-3.1-8B")
-                self.provider_name = os.getenv("HF_PROVIDER", "featherless-ai")
+                self.client = InferenceClient(token=hf_token)
+                self.model = os.getenv("HF_MODEL", "meta-llama/Meta-Llama-3.1-8B-Instruct")
+                self.provider_name = os.getenv("HF_PROVIDER", "")
             else:
                 raise ValueError("In free-only mode, HF_TOKEN, LLAMA_API_KEY or HF_API_KEY must be set")
         else:
@@ -39,11 +38,9 @@ class LLMService:
                 hf_token = os.getenv("HF_TOKEN") or os.getenv("LLAMA_API_KEY") or os.getenv("HF_API_KEY")
                 if hf_token:
                     self.provider = "huggingface"
-                    self.client = InferenceClient(
-                        token=hf_token
-                    )
-                    self.model = os.getenv("HF_MODEL", "meta-llama/Llama-3.1-8B")
-                    self.provider_name = os.getenv("HF_PROVIDER", "featherless-ai")
+                    self.client = InferenceClient(token=hf_token)
+                    self.model = os.getenv("HF_MODEL", "meta-llama/Meta-Llama-3.1-8B-Instruct")
+                    self.provider_name = os.getenv("HF_PROVIDER", "")
                 else:
                     raise ValueError("Either GROK_API_KEY or (HF_TOKEN/LLAMA_API_KEY/HF_API_KEY) must be set")
 
@@ -53,7 +50,6 @@ class LLMService:
         """
         try:
             if self.provider == "grok":
-                import requests
                 headers = {
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json"
@@ -76,13 +72,17 @@ class LLMService:
                 return response.status_code == 200
             else:  # huggingface
                 # Test using the InferenceClient
-                test_result = self.client.text_generation(
-                    "Hello, how are you?",
-                    model=self.model,
-                    max_new_tokens=10
-                )
-                
-                return test_result is not None
+                try:
+                    test_result = self.client.text_generation(
+                        "Hello, how are you?",
+                        model=self.model,
+                        max_new_tokens=10
+                    )
+                    
+                    return test_result is not None
+                except Exception as e:
+                    print(f"Error testing HuggingFace connection: {e}")
+                    return False
         except Exception as e:
             print(f"Error testing {self.provider} connection: {e}")
             return False
@@ -103,7 +103,6 @@ class LLMService:
             """
 
             if self.provider == "grok":
-                import requests
                 headers = {
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json"
@@ -145,7 +144,7 @@ class LLMService:
                         hf_token = os.getenv("HF_TOKEN") or os.getenv("LLAMA_API_KEY") or os.getenv("HF_API_KEY")
                         if hf_token:
                             client = InferenceClient(token=hf_token)
-                            model = os.getenv("HF_MODEL", "meta-llama/Llama-3.1-8B")
+                            model = os.getenv("HF_MODEL", "meta-llama/Meta-Llama-3.1-8B-Instruct")
                             
                             result = client.text_generation(
                                 prompt,
@@ -158,44 +157,73 @@ class LLMService:
                         else:
                             print("No HuggingFace token available for fallback")
             else:  # huggingface
-                result = self.client.text_generation(
-                    prompt,
-                    model=self.model,
-                    max_new_tokens=500,
-                    temperature=0.7,
-                    top_p=0.95
-                )
-                
-                return result
+                try:
+                    result = self.client.text_generation(
+                        prompt,
+                        model=self.model,
+                        max_new_tokens=500,
+                        temperature=0.7,
+                        top_p=0.95
+                    )
+                    
+                    return result
+                except Exception as e:
+                    print(f"HuggingFace API error: {e}")
+                    # If the default HF client fails, try using the direct requests approach
+                    hf_api_key = os.getenv("HF_API_KEY")
+                    if hf_api_key:
+                        print("Attempting fallback to direct HuggingFace API call...")
+                        api_url = f"https://api-inference.huggingface.co/models/{self.model}"
+                        headers = {"Authorization": f"Bearer {hf_api_key}"}
+                        
+                        payload = {
+                            "inputs": prompt,
+                            "parameters": {
+                                "max_new_tokens": 500,
+                                "temperature": 0.7,
+                                "top_p": 0.95,
+                                "return_full_text": False
+                            }
+                        }
+                        
+                        response = requests.post(api_url, headers=headers, json=payload)
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            if isinstance(result, list) and len(result) > 0:
+                                return result[0].get("generated_text", "")
+                        else:
+                            print(f"HuggingFace direct API error: {response.status_code}, {response.text}")
+                            # Check for common error conditions
+                            if response.status_code == 422:
+                                print("Error 422: This typically means the model is not supported by Hugging Face Inference API.")
+                                print("Make sure you're using a supported text generation model.")
+                            elif response.status_code == 503:
+                                print("Error 503: Model is currently loading or unavailable on Hugging Face.")
+                                print("You may need to wait or select a different model.")
 
             return None
         except Exception as e:
             print(f"Error generating prompt from brief: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
+# Create a global instance of LLMService
+_llm_service_instance = None
 
 def get_llm_service():
     """
-    Get or create LLMService instance (lazy initialization)
+    Get or create the singleton instance of LLMService
     """
     global _llm_service_instance
-    if '_llm_service_instance' not in globals():
+    if _llm_service_instance is None:
         _llm_service_instance = LLMService()
     return _llm_service_instance
 
-
-def test_llm_connection():
+async def test_llm_connection():
     """
-    Test function to verify the connection to the configured LLM API
+    Test the connection to the LLM service
     """
-    try:
-        import asyncio
-
-        async def _test():
-            service = get_llm_service()
-            return await service.test_connection()
-
-        return asyncio.run(_test())
-    except Exception as e:
-        print(f"Error during connection test: {e}")
-        return False
+    llm_service = get_llm_service()
+    return await llm_service.test_connection()

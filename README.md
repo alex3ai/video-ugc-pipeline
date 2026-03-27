@@ -145,12 +145,8 @@ Contribuições são o que tornam a comunidade open source um lugar incrível pa
 
 Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
 
-## 👨‍💻 Autores
+## 👨‍💻 Autor
 
-- Seu Nome - Desenvolvedor Principal
-
-## 💬 Contato
-
-Seu Nome - contato@seudominio.com
+- Alex Oliveira Mendes - Desenvolvedor Principal
 
 Projeto criado para demonstrar a aplicação de tecnologias modernas na automação de criação de conteúdo de vídeo.

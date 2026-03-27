@@ -1,33 +1,75 @@
-# Video_UGC_Pipeline - Descrição do Projeto
+# Descrição do Projeto: Video UGC Pipeline
 
-## Nome do projeto
-Video_UGC_Pipeline
+## Visão Geral
+O Video UGC Pipeline é uma plataforma automatizada para criação de vídeos de marketing gerados por usuários (User-Generated Content - UGC) com base em breves descritivos de campanha. O sistema permite que criadores e marcas desenvolvam rapidamente vídeos promocionais personalizados com mínima intervenção humana.
 
-## Objetivo de negócio
-Automatizar o fluxo completo de criação de vídeos UGC via código (substituindo ferramentas como n8n), conectando a leitura de um briefing de texto à renderização de vídeo assistida por IA e armazenamento em nuvem.
+## Objetivo Principal
+Transformar breves descrições textuais de campanhas em vídeos promocionais completos usando inteligência artificial, minimizando o tempo e esforço necessários para produção de conteúdo visual.
 
-## Problema principal resolvido
-Elimina o tempo operacional de transitar manualmente entre LLMs, geradores de vídeo e drives virtuais, além de automatizar o "polling" e monitoramento de *cold starts* de modelos de vídeo.
+## Arquitetura Atual
 
-## Resultado esperado
-Uma solução baseada em Python (FastAPI), com banco de dados SQLite para persistência de status do Job, que permite:
-- API/Interface para submissão de briefing
-- Integração flexível com diferentes provedores de LLM (Grok da xAI ou Llama 3 via Hugging Face) para gerar scripts/prompts
-- Geração de vídeo assistida por IA usando modelos gratuitos do Hugging Face com transições suaves
-- Salvamento automatizado no Google Drive
-- Front-end simples em Next.js (opcional)
+### Backend (Python/FastAPI)
+- API RESTful para gerenciamento de campanhas e vídeos
+- Integração com Hugging Face para geração de roteiros de vídeo (LLM)
+- Integração com Hugging Face Spaces para geração de vídeo (T2V)
+- Integração com Google Drive para armazenamento de vídeos
+- Banco de dados SQLite para persistência de metadados
+- Worker para processamento assíncrono de jobs
 
-O foco é manter custos zero (Free Tiers) e evitar componentes fora do MVP como edição avançada, lip-sync, deploy cloud de alta disponibilidade e autenticação multi-tenant.
+### Frontend (Next.js/React)
+- Interface web para criação de campanhas
+- Dashboard para monitoramento de jobs de geração de vídeo
+- Visualização de status e resultados de processamento
+- Integração com API do backend
 
-## Público-alvo / Perfis de usuário
-- Analistas de Marketing
-- Diretores de Arte
-- Engenheiros de Automação
-- Criadores de Conteúdo (Gestores de Tráfego)
+## Componentes Principais
 
-## Stack Tecnológica
-- Backend: Python (FastAPI)
-- Banco de Dados: SQLite
-- Frontend: Next.js (Front-end simples opcional)
-- Background Tasks para processamento assíncrono
-- APIs externas: xAI Grok (opcional/pago) ou Meta Llama 3 via Hugging Face (gratuito), Hugging Face Spaces para geração de vídeo (gratuita), Google Drive
+### 1. Serviço de LLM (Hugging Face)
+- Gera roteiros detalhados de vídeo a partir de breves descrições de campanha
+- Usa modelos como Meta-Llama-3-8B-Instruct via provedor Hugging Face
+- Configurado para usar modelos gratuitos e com baixo custo
+
+### 2. Serviço de Geração de Vídeo (Hugging Face Spaces)
+- Usa modelo Wan-AI/Wan2.1-T2V-1.3B via Gradio Client
+- Gera vídeos de até 5 segundos com base em prompts textuais
+- Implementa estratégia de chamadas sequenciais para extensão de duração
+- Usa MoviePy para combinação e transições suaves entre segmentos
+
+### 3. Serviço de Armazenamento (Google Drive)
+- Faz upload de vídeos gerados para pasta compartilhada
+- Retorna links públicos para compartilhamento
+- Integração via Google Drive API
+
+### 4. Pipeline de Processamento
+- Estados: PENDING → PROCESSING → COMPLETED/FAILED
+- Worker assíncrono verifica jobs pendentes periodicamente
+- Processamento paralelo de múltiplos jobs independentes
+- Retentativas e tratamento de falhas
+
+## Tecnologias Utilizadas
+- **Backend**: Python 3.9+, FastAPI, SQLAlchemy, Hugging Face Hub
+- **Frontend**: Next.js 13+, React 18+, TypeScript
+- **Banco de Dados**: SQLite
+- **IA**: Modelos de linguagem e geração de vídeo do Hugging Face
+- **Armazenamento**: Google Drive API
+- **Vídeo Processing**: MoviePy, Gradio Client
+
+## Características do Sistema
+- **Automatizado**: Produz vídeos com mínima intervenção humana
+- **Escalável**: Processamento assíncrono permite alta concorrência
+- **Econômico**: Usa modelos gratuitos e APIs com free tier
+- **Flexível**: Arquitetura modular permite troca de componentes
+- **Monitorável**: Dashboard para acompanhamento de processos
+
+## Limitações Conhecidas
+- Tempo de processamento depende de filas do Hugging Face
+- Qualidade de vídeo dependente do modelo T2V utilizado
+- Limite de duração do vídeo devido a restrições do modelo
+- Confiabilidade dependente de serviços externos
+
+## Evolução Futura
+- Integração com mais provedores de IA
+- Suporte a templates personalizados
+- Edição avançada de vídeos
+- Integração com redes sociais
+- Análise de desempenho de vídeos

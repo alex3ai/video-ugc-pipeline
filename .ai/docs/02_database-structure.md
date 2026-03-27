@@ -1,36 +1,89 @@
-# Estrutura de Banco de Dados - Video_UGC_Pipeline
+# Estrutura do Banco de Dados
 
-Este documento descreve a estrutura do banco de dados SQLite para o projeto Video_UGC_Pipeline.
+## Entidades
 
-## Entidade: Campaign
-Armazena as informações básicas das campanhas submetidas ao sistema.
+### 1. Campaign (Campanha)
+- **Descrição**: Representa uma campanha de marketing para a qual será gerado um vídeo promocional
+- **Responsabilidade**: Armazenar informações básicas sobre a campanha e o briefing descritivo
 
+#### Campos
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
-| id | UUID (PK) | Identificador único da campanha |
-| name | String | Nome da campanha (obrigatório) |
-| briefing_text | Text | Texto do briefing da campanha (obrigatório, mínimo 50, máximo 2000 caracteres) |
-| created_at | Datetime | Data e hora de criação da campanha |
+| id | Integer (PK) | Identificador único da campanha |
+| name | String(255) | Nome da campanha |
+| briefing_text | Text | Breve descritivo da campanha para geração do vídeo |
+| created_at | DateTime | Timestamp de criação da campanha |
+| updated_at | DateTime | Timestamp da última atualização |
 
-## Entidade: PipelineJob
-Registra os trabalhos de processamento da pipeline de vídeo, incluindo status e resultados.
+#### Relacionamentos
+- Um para muitos com PipelineJob (uma campanha pode ter múltiplos jobs de vídeo)
 
+### 2. PipelineJob (Trabalho de Pipeline)
+- **Descrição**: Representa uma tarefa individual de geração de vídeo associada a uma campanha
+- **Responsabilidade**: Controlar o estado do processo de geração de vídeo, desde a criação até a conclusão
+
+#### Campos
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
-| id | UUID (PK) | Identificador único do job |
-| campaign_id | UUID (FK -> Campaign.id) | Chave estrangeira referenciando a campanha associada |
-| status | Enum | Status do job (PENDING, PROMPT_GENERATED, PROCESSING_VIDEO, COMPLETED, FAILED, TIMEOUT) |
-| prompt | Text (Nullable) | Prompt gerado pelo sistema (opcional) |
-| video_url | String (Nullable) | Link final do vídeo no Google Drive (opcional) |
-| error_message | Text (Nullable) | Mensagem de erro ocorrida durante o processamento (opcional) |
-| created_at | Datetime | Data e hora de criação do job |
-| updated_at | Datetime | Data e hora da última atualização do job |
+| id | Integer (PK) | Identificador único do job |
+| campaign_id | Integer (FK) | Referência para a campanha associada |
+| status | Enum (JobStatusEnum) | Estado atual do job (PENDING, PROCESSING, COMPLETED, FAILED) |
+| prompt | Text | Roteiro gerado para a geração do vídeo |
+| video_url | String(500) | URL do vídeo gerado (armazenado no Google Drive) |
+| error_message | Text | Mensagem de erro caso o job tenha falhado |
+| created_at | DateTime | Timestamp de criação do job |
+| updated_at | DateTime | Timestamp da última atualização |
 
-## Relacionamentos
-- Um Campaign pode ter um ou mais PipelineJob
-- Um PipelineJob pertence a um único Campaign
+#### Enum: JobStatusEnum
+- PENDING: Job aguardando processamento
+- PROCESSING: Job em processamento
+- COMPLETED: Job concluído com sucesso
+- FAILED: Job falhou durante o processamento
 
-## Restrições e Considerações
-- O sistema deve estabelecer concorrência máxima de processamento de 1 job por vez, baseando-se nos status PENDING ou em andamento.
-- Os campos briefing_text têm limites de tamanho entre 50 e 2000 caracteres.
-- Os campos created_at e updated_at devem ser gerenciados automaticamente pelo sistema.
+#### Relacionamentos
+- Muitos para um com Campaign (múltiplos jobs podem pertencer a uma campanha)
+
+## Diagrama de Relacionamento
+
+```
+[Campanha] 1 ---- * [PipelineJob]
+```
+
+## Considerações de Design
+
+### Normalização
+- A estrutura é normalizada para evitar repetição de dados
+- A separação entre campanha e job permite múltiplas tentativas de geração para a mesma campanha
+
+### Escalabilidade
+- Índices recomendados em campos frequentemente consultados (campaign_id, status)
+- Estrutura permite adição de metadados futuros sem impacto significativo
+
+### Persistência
+- Usando SQLite para simplicidade e portabilidade
+- Estrutura compatível com migração para outros bancos (PostgreSQL, MySQL) se necessário
+
+## Exemplos de Consultas SQL
+
+### Listar campanhas com contagem de jobs
+```sql
+SELECT c.name, c.briefing_text, COUNT(pj.id) as job_count
+FROM Campaign c
+LEFT JOIN PipelineJob pj ON c.id = pj.campaign_id
+GROUP BY c.id;
+```
+
+### Obter jobs pendentes
+```sql
+SELECT * FROM PipelineJob 
+WHERE status = 'PENDING' 
+ORDER BY created_at ASC;
+```
+
+### Obter status de jobs por campanha
+```sql
+SELECT c.name, pj.status, pj.created_at
+FROM Campaign c
+JOIN PipelineJob pj ON c.id = pj.campaign_id
+ORDER BY pj.created_at DESC;
+```

@@ -1,72 +1,110 @@
-03_project-phases.md
-# Fases do Projeto - Video_UGC_Pipeline
+# Fases do Projeto
 
-## Fase 0: Foundation e Conectores
-Esta fase estabelece a base técnica do projeto com setup inicial e módulos de serviço isolados.
+## Visão Geral
+Este documento descreve as fases de desenvolvimento do projeto Video UGC Pipeline, desde a concepção até a implementação atual e futuras expansões.
 
-### Tarefas pequenas:
-- [x] Configurar ambiente Python com FastAPI e SQLAlchemy
-- [x] Criar estrutura básica de diretórios do projeto
-- [x] Configurar banco de dados SQLite com conexão funcional
-- [x] Criar módulo `llm_service.py` com função de teste para conexão com Grok ou Hugging Face Llama
-- [x] Criar módulo `video_service.py` com função de teste para conexão com API de vídeo
-- [x] Criar módulo `drive_service.py` com função de teste para conexão com Google Drive
-- [x] Implementar configuração de variáveis de ambiente para chaves de API
-- [x] Realizar testes unitários básicos para cada módulo de serviço
-- [x] Documentar erros comuns e soluções para cada conector
+## Fase 1: Fundação (Concluída)
+- **Objetivo**: Criar a estrutura básica do sistema com backend e frontend
+- **Resultados**:
+  - Setup inicial do backend com FastAPI
+  - Estrutura de banco de dados (SQLite) com entidades Campaign e PipelineJob
+  - Frontend básico com Next.js para criação de campanhas
+  - Configuração de ambiente e dependências
 
-## Fase 1: Pipeline Core (Worker/Background Task)
-Esta fase implementa a lógica central do processamento automatizado da pipeline.
+### Tarefas Concluídas
+- [x] Configurar projeto Python com FastAPI
+- [x] Criar modelos de banco de dados
+- [x] Implementar endpoints básicos de API
+- [x] Criar interface web para criação de campanhas
+- [x] Integrar banco de dados com SQLAlchemy
 
-### Tarefas pequenas:
-- [x] Criar modelo Pydantic para `Campaign` com validação de briefing_text (50-2000 chars)
-- [x] Criar modelo Pydantic para `PipelineJob` com enumeração de status
-- [x] Criar modelos SQLAlchemy para persistência no banco de dados
-- [x] Implementar função de inicialização de novo job com status PENDING
-- [x] Implementar worker para buscar jobs PENDING no banco
-- [x] Integrar `llm_service.py` com a geração de prompt para jobs PENDING (suporte a múltiplos provedores)
-- [x] Implementar lógica de retry (até 3 vezes) para falhas na API de qualquer provedor
-- [x] Implementar função de transição de status PENDING -> PROMPT_GENERATED
-- [x] Implementar função de envio do prompt para API de vídeo
-- [x] Implementar lógica de polling inteligente com backoff exponencial para status PROCESSING_VIDEO
-- [x] Tratar respostas HTTP 503 (Cold Start) com retentativa
-- [x] Implementar timeout de 10 minutos para o processo de renderização
-- [x] Implementar transição de status PROCESSING_VIDEO -> COMPLETED
-- [x] Implementar transições para status FAILED e TIMEOUT com logs de erro
-- [x] Garantir restrição de execução de apenas 1 job por vez
-- [x] Testar máquina de estados completa com diferentes cenários
+## Fase 2: Integração de IA (Concluída)
+- **Objetivo**: Implementar geração de roteiros de vídeo usando IA
+- **Resultados**:
+  - Integração com Google Gemini para geração de roteiros
+  - Substituição para modelos Hugging Face para manter custos zero
+  - Configuração de tokens e autenticação
+  - Implementação de fallbacks para diferentes provedores
 
-## Fase 2: Front-end e Entrega final
-Esta fase implementa a interface com o usuário e finaliza a pipeline completa.
+### Tarefas Concluídas
+- [x] Integrar Google Generative AI
+- [x] Substituir por Hugging Face InferenceClient
+- [x] Configurar modelos gratuitos (Meta-Llama-3-8B-Instruct)
+- [x] Implementar tratamento de erros e fallbacks
+- [x] Validar qualidade dos roteiros gerados
 
-### Tarefas pequenas:
-- [x] Criar endpoint POST para submissão de nova campanha
-- [x] Implementar validação do briefing_text no endpoint de submissão
-- [x] Criar endpoint GET para listagem de campanhas e seus jobs
-- [x] Implementar filtro por status no endpoint de listagem
-- [x] Criar endpoint GET para detalhes de um job específico
-- [x] Implementar paginação para listagens grandes
-- [x] Desenvolver front-end simples em Next.js com formulário de submissão
-- [x] Implementar dashboard com listagem de campanhas e status em tempo real
-- [x] Integrar `drive_service.py` com upload do vídeo gerado para Google Drive
-- [x] Implementar persistência do link do vídeo no campo video_url do job
-- [x] Implementar atualização de status para COMPLETED após upload no Drive
-- [x] Implementar tratamento de falhas no upload para Google Drive (3 tentativas)
-- [x] Implementar armazenamento temporário em caso de falha de upload
-- [x] Testar fluxo completo: briefing → prompt (com Grok ou Llama 3) → vídeo → upload → link
-- [x] Implementar fallback automático para provedor gratuito quando o pago não está disponível
-- [x] Realizar testes de ponta a ponta para validação final
-- [x] Documentar a API com exemplos de uso
+## Fase 3: Geração de Vídeo (Concluída)
+- **Objetivo**: Implementar geração de vídeo a partir de roteiros
+- **Resultados**:
+  - Implementação de nova abordagem baseada em Hugging Face Spaces
+  - Uso do modelo Wan-AI/Wan2.1-T2V-1.3B via Gradio Client
+  - Combinação de vídeos com MoviePy para maior duração
+  - Transições suaves entre segmentos
 
-## Fase 3: Atualização da Geração de Vídeo
-Esta fase substitui a abordagem anterior de geração de vídeo por uma nova baseada em modelos gratuitos do Hugging Face para reduzir custos e aumentar a flexibilidade.
+### Tarefas Concluídas
+- [x] Substituir API proprietária por solução baseada em Hugging Face
+- [x] Integrar Gradio Client para acesso a Spaces
+- [x] Implementar lógica de chamadas sequenciais para extensão de vídeo
+- [x] Adicionar MoviePy para combinação e pós-processamento de vídeos
+- [x] Implementar tratamento de filas e timeouts do Hugging Face
 
-### Tarefas pequenas:
-- [x] Substituir a integração com API proprietária por uma baseada em Hugging Face Spaces
-- [x] Implementar uso da biblioteca `gradio_client` para conexão com espaços de Text-to-Video gratuitos
-- [x] Implementar lógica para gerar vídeos mais longos com chamadas sequenciais de 5 segundos
-- [x] Utilizar `moviepy` para combinar vídeos e aplicar transições suaves
-- [x] Incluir tratamento de erros para filas do Hugging Face ou falhas de conexão
-- [x] Atualizar documentação com novos requisitos e instruções de configuração
-- [x] Atualizar testes para refletir a nova implementação de geração de vídeo
-- [x] Remover arquivos e configurações obsoletas relacionadas à antiga abordagem de vídeo
+## Fase 4: Processamento Assíncrono (Concluída)
+- **Objetivo**: Permitir processamento assíncrono de jobs de geração de vídeo
+- **Resultados**:
+  - Implementação de worker para processamento em background
+  - Máquina de estados para gerenciamento de jobs
+  - Feedback em tempo real sobre o status dos jobs
+  - Tratamento de falhas e retentativas
+
+### Tarefas Concluídas
+- [x] Criar worker para processamento de jobs
+- [x] Implementar máquina de estados (PENDING → PROCESSING → COMPLETED/FAILED)
+- [x] Adicionar feedback de status para o frontend
+- [x] Implementar tratamento de erros e retentativas
+- [x] Monitoramento de progresso dos jobs
+
+## Fase 5: Armazenamento e Distribuição (Concluída)
+- **Objetivo**: Armazenar vídeos gerados e disponibilizar links de acesso
+- **Resultados**:
+  - Integração com Google Drive para armazenamento
+  - Upload automático de vídeos gerados
+  - Geração de links públicos para compartilhamento
+  - Integração completa com o pipeline
+
+### Tarefas Concluídas
+- [x] Integrar Google Drive API
+- [x] Implementar upload automático de vídeos
+- [x] Armazenar links de acesso nos registros do banco
+- [x] Validar acesso e permissões de compartilhamento
+- [x] Tratamento de erros de upload e armazenamento
+
+## Fase 6: Otimização e Estabilidade (Concluída)
+- **Objetivo**: Resolver bugs e melhorar a estabilidade do sistema
+- **Resultados**:
+  - Correção de diversos bugs de integração
+  - Melhoria na gestão de chamadas assíncronas
+  - Ajustes na gestão de cache e configurações
+  - Documentação atualizada
+
+### Tarefas Concluídas
+- [x] Corrigir problema com chamadas assíncronas no serviço de job
+- [x] Resolver problema de cache de configurações no serviço de LLM
+- [x] Atualizar documentação com soluções implementadas
+- [x] Melhorar tratamento de erros e fallbacks
+- [x] Validar estabilidade do sistema em execução prolongada
+
+## Fase 7: Expansão e Aprimoramentos (Planejada)
+- **Objetivo**: Adicionar recursos avançados e expandir capacidades
+- **Planejamento**:
+  - Templates personalizados para diferentes tipos de vídeo
+  - Integração com redes sociais para publicação automática
+  - Análise de desempenho de vídeos gerados
+  - Suporte a diferentes estilos e formatos de vídeo
+  - Autenticação e autorização de usuários
+
+### Tarefas Planejadas
+- [ ] Implementar sistema de templates personalizados
+- [ ] Adicionar análise de métricas de engajamento
+- [ ] Integrar com APIs de redes sociais
+- [ ] Criar sistema de autenticação de usuários
+- [ ] Expandir suporte para mais modelos de IA

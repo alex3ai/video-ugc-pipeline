@@ -3,6 +3,7 @@ import os
 import requests
 from dotenv import load_dotenv
 from huggingface_hub import InferenceClient
+from config import settings
 
 # Load environment variables
 load_dotenv()
@@ -20,9 +21,10 @@ class LLMService:
             hf_token = os.getenv("HF_TOKEN") or os.getenv("LLAMA_API_KEY") or os.getenv("HF_API_KEY")
             if hf_token:
                 self.provider = "huggingface"
+                # Configurar o InferenceClient com o token
                 self.client = InferenceClient(token=hf_token)
-                self.model = os.getenv("HF_MODEL", "meta-llama/Meta-Llama-3.1-8B-Instruct")
-                self.provider_name = os.getenv("HF_PROVIDER", "")
+                self.model = settings.HF_MODEL
+                self.provider_name = settings.HF_PROVIDER
             else:
                 raise ValueError("In free-only mode, HF_TOKEN, LLAMA_API_KEY or HF_API_KEY must be set")
         else:
@@ -38,9 +40,10 @@ class LLMService:
                 hf_token = os.getenv("HF_TOKEN") or os.getenv("LLAMA_API_KEY") or os.getenv("HF_API_KEY")
                 if hf_token:
                     self.provider = "huggingface"
+                    # Configurar o InferenceClient com o token
                     self.client = InferenceClient(token=hf_token)
-                    self.model = os.getenv("HF_MODEL", "meta-llama/Meta-Llama-3.1-8B-Instruct")
-                    self.provider_name = os.getenv("HF_PROVIDER", "")
+                    self.model = settings.HF_MODEL
+                    self.provider_name = settings.HF_PROVIDER
                 else:
                     raise ValueError("Either GROK_API_KEY or (HF_TOKEN/LLAMA_API_KEY/HF_API_KEY) must be set")
 
@@ -71,15 +74,32 @@ class LLMService:
                 
                 return response.status_code == 200
             else:  # huggingface
-                # Test using the InferenceClient
+                # Test using the InferenceClient with chat completions
                 try:
-                    test_result = self.client.text_generation(
-                        "Hello, how are you?",
-                        model=self.model,
-                        max_new_tokens=10
-                    )
-                    
-                    return test_result is not None
+                    # Construir a URL correta com o provider para testes
+                    if self.provider_name:
+                        # Fazer uma chamada direta para o endpoint do provedor
+                        hf_api_key = os.getenv("HF_API_KEY")
+                        api_url = f"https://router.huggingface.co/{self.provider_name}/v1/chat/completions"
+                        headers = {"Authorization": f"Bearer {hf_api_key}", "Content-Type": "application/json"}
+                        
+                        payload = {
+                            "model": self.model,
+                            "messages": [{"role": "user", "content": "Hello"}],
+                            "max_tokens": 20,
+                            "temperature": 0.7
+                        }
+                        
+                        response = requests.post(api_url, headers=headers, json=payload)
+                        return response.status_code == 200
+                    else:
+                        # Teste padrão com o InferenceClient
+                        response = self.client.chat.completions.create(
+                            model=self.model,
+                            messages=[{"role": "user", "content": "Hello"}],
+                            max_tokens=20
+                        )
+                        return response is not None
                 except Exception as e:
                     print(f"Error testing HuggingFace connection: {e}")
                     return False
@@ -144,63 +164,77 @@ class LLMService:
                         hf_token = os.getenv("HF_TOKEN") or os.getenv("LLAMA_API_KEY") or os.getenv("HF_API_KEY")
                         if hf_token:
                             client = InferenceClient(token=hf_token)
-                            model = os.getenv("HF_MODEL", "meta-llama/Meta-Llama-3.1-8B-Instruct")
+                            model = settings.HF_MODEL
+                            provider_name = settings.HF_PROVIDER
                             
-                            result = client.text_generation(
-                                prompt,
+                            response = client.chat.completions.create(
                                 model=model,
-                                max_new_tokens=500,
+                                messages=[{"role": "user", "content": prompt}],
+                                max_tokens=500,
                                 temperature=0.7
                             )
                             
-                            return result
+                            return response.choices[0].message.content
                         else:
                             print("No HuggingFace token available for fallback")
             else:  # huggingface
-                try:
-                    result = self.client.text_generation(
-                        prompt,
-                        model=self.model,
-                        max_new_tokens=500,
-                        temperature=0.7,
-                        top_p=0.95
-                    )
-                    
-                    return result
-                except Exception as e:
-                    print(f"HuggingFace API error: {e}")
-                    # If the default HF client fails, try using the direct requests approach
-                    hf_api_key = os.getenv("HF_API_KEY")
-                    if hf_api_key:
-                        print("Attempting fallback to direct HuggingFace API call...")
-                        api_url = f"https://api-inference.huggingface.co/models/{self.model}"
-                        headers = {"Authorization": f"Bearer {hf_api_key}"}
+                # Primeiro tentar com o endpoint do provedor específico
+                if self.provider_name:
+                    try:
+                        hf_api_key = os.getenv("HF_API_KEY")
+                        api_url = f"https://router.huggingface.co/{self.provider_name}/v1/chat/completions"
+                        headers = {"Authorization": f"Bearer {hf_api_key}", "Content-Type": "application/json"}
                         
                         payload = {
-                            "inputs": prompt,
-                            "parameters": {
-                                "max_new_tokens": 500,
-                                "temperature": 0.7,
-                                "top_p": 0.95,
-                                "return_full_text": False
-                            }
+                            "model": self.model,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "max_tokens": 500,
+                            "temperature": 0.7,
+                            "top_p": 0.95
                         }
                         
                         response = requests.post(api_url, headers=headers, json=payload)
                         
                         if response.status_code == 200:
                             result = response.json()
-                            if isinstance(result, list) and len(result) > 0:
-                                return result[0].get("generated_text", "")
+                            choices = result.get("choices", [])
+                            if choices:
+                                return choices[0].get("message", {}).get("content", "")
+                            else:
+                                print(f"Unexpected router.huggingface.co API response format: {result}")
                         else:
-                            print(f"HuggingFace direct API error: {response.status_code}, {response.text}")
-                            # Check for common error conditions
-                            if response.status_code == 422:
-                                print("Error 422: This typically means the model is not supported by Hugging Face Inference API.")
-                                print("Make sure you're using a supported text generation model.")
-                            elif response.status_code == 503:
-                                print("Error 503: Model is currently loading or unavailable on Hugging Face.")
-                                print("You may need to wait or select a different model.")
+                            print(f"Router.huggingface.co API error: {response.status_code}, {response.text}")
+                            if response.status_code == 404:
+                                print("Model may not be served by this provider. Trying direct InferenceClient...")
+                    except Exception as e:
+                        print(f"Error with router.huggingface.co endpoint: {e}")
+                
+                # Se o provedor falhar ou não estiver configurado, usar o InferenceClient padrão
+                try:
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[{"role": "user", "content": prompt}],
+                        max_tokens=500,
+                        temperature=0.7,
+                        top_p=0.95
+                    )
+                    
+                    return response.choices[0].message.content
+                except Exception as e:
+                    print(f"HuggingFace API error: {e}")
+                    # Se o modelo não estiver disponível com o provedor, tentar com um modelo padrão do Hugging Face
+                    try:
+                        # Usar um modelo diretamente com o InferenceClient
+                        response = self.client.chat.completions.create(
+                            model="microsoft/DialoGPT-medium",
+                            messages=[{"role": "user", "content": prompt}],
+                            max_tokens=500,
+                            temperature=0.7
+                        )
+                        return response.choices[0].message.content
+                    except Exception as fallback_error:
+                        print(f"All attempts to generate prompt failed: {fallback_error}")
+                        return None
 
             return None
         except Exception as e:
@@ -217,8 +251,8 @@ def get_llm_service():
     Get or create the singleton instance of LLMService
     """
     global _llm_service_instance
-    if _llm_service_instance is None:
-        _llm_service_instance = LLMService()
+    # Forçar reconstrução da instância para garantir que as configurações estejam atualizadas
+    _llm_service_instance = LLMService()
     return _llm_service_instance
 
 async def test_llm_connection():

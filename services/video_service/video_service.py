@@ -8,6 +8,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from gradio_client import Client
 from moviepy.editor import VideoFileClip, concatenate_videoclips
 import requests
+import logging
+
+from config import settings
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def test_video_api_connection():
@@ -15,120 +21,152 @@ def test_video_api_connection():
     Função de teste para conexão com API de vídeo
     """
     try:
-        # Testar se os pacotes necessários estão disponíveis
-        import gradio_client
-        import moviepy
-        print("Dependências necessárias para geração de vídeo estão instaladas!")
+        # Testar a conexão com o modelo de vídeo
+        client = Client(settings.HF_SPACE_MODEL)
         return True
-    except ImportError as e:
-        print(f"Erro: Dependências necessárias não encontradas: {str(e)}")
+    except Exception as e:
+        logger.error(f"Erro ao testar conexão com API de vídeo: {e}")
         return False
 
 
-def generate_video_from_prompt(prompt: str, campaign_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
+def generate_video_with_huggingface(text_prompt: str) -> Optional[str]:
     """
-    Gera um vídeo de 10 segundos a partir de um prompt de texto usando T2V grátis do Hugging Face
-    
-    Args:
-        prompt (str): O prompt textual para geração do vídeo
-        campaign_id (int, optional): ID da campanha associada
-        
-    Returns:
-        dict: Informações sobre o vídeo gerado
+    Gera um único vídeo de até 5 segundos com base no prompt de texto
     """
     try:
-        # Criar diretório temporário para armazenar os vídeos
-        temp_dir = settings.TEMP_VIDEO_DIR
+        logger.info(f"Gerando vídeo com prompt: {text_prompt[:50]}...")
         
-        # Usar o modelo configurado no settings
+        # Usar o Gradio Client para se conectar ao espaço Hugging Face
         client = Client(settings.HF_SPACE_MODEL)
         
-        # Gerar primeiro segmento de 5 segundos
-        print("Gerando primeiro segmento de vídeo...")
-        result_1 = client.predict(
-            prompt,
-            api_name="/predict"
+        # Chamar o espaço para gerar o vídeo
+        result = client.predict(
+            text_prompt,
+            api_name="/infer"
         )
         
-        # Salvar primeiro vídeo
-        video_path_1 = os.path.join(temp_dir, "video_part_1.mp4")
-        with open(video_path_1, 'wb') as f:
-            with open(result_1, 'rb') as source:
-                f.write(source.read())
+        # Retorna o caminho para o vídeo gerado
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao gerar vídeo com Hugging Face: {e}")
+        return None
+
+
+def generate_video_segment(prompt: str, segment_number: int) -> Optional[str]:
+    """
+    Gera um segmento de vídeo usando o modelo Wan2.1-T2V-1.3B
+    """
+    logger.info(f"Iniciando geração do segmento {segment_number}: {prompt[:60]}...")
+    
+    # Gerar o vídeo com o modelo de texto fornecido
+    video_path = generate_video_with_huggingface(prompt)
+    
+    if video_path:
+        logger.info(f"Segmento {segment_number} gerado com sucesso: {video_path}")
+        return video_path
+    else:
+        logger.error(f"Falha ao gerar segmento {segment_number}")
+        return None
+
+
+def concatenate_video_segments(segment_paths: list) -> Optional[str]:
+    """
+    Concatena múltiplos segmentos de vídeo com transições suaves
+    """
+    try:
+        logger.info(f"Concatenando {len(segment_paths)} segmentos de vídeo...")
         
-        # Gerar segundo segmento de 5 segundos com o mesmo prompt
-        print("Gerando segundo segmento de vídeo...")
-        result_2 = client.predict(
-            prompt,
-            api_name="/predict"
-        )
+        # Carregar todos os clipes de vídeo
+        clips = []
+        for path in segment_paths:
+            if path and os.path.exists(path):
+                clip = VideoFileClip(path)
+                clips.append(clip)
+                logger.info(f"Carregado clipe: {path}")
+            else:
+                logger.warning(f"Caminho de vídeo inválido ou não encontrado: {path}")
         
-        # Salvar segundo vídeo
-        video_path_2 = os.path.join(temp_dir, "video_part_2.mp4")
-        with open(video_path_2, 'wb') as f:
-            with open(result_2, 'rb') as source:
-                f.write(source.read())
+        if not clips:
+            logger.error("Nenhum clipe de vídeo válido encontrado para concatenação")
+            return None
         
-        # Combinar os vídeos com transição suave
-        print("Combinando vídeos com transição...")
-        combined_video_path = os.path.join(temp_dir, "video_final_10s.mp4")
-        
-        # Carregar os clips de vídeo
-        clip1 = VideoFileClip(video_path_1)
-        clip2 = VideoFileClip(video_path_2)
-        
-        # Cortar os clips para terem a duração configurada
-        duration_per_segment = settings.VIDEO_DURATION_PER_SEGMENT
-        clip1 = clip1.subclip(0, min(duration_per_segment, clip1.duration))
-        clip2 = clip2.subclip(0, min(duration_per_segment, clip2.duration))
-        
-        # Obter duração da transição configurada
-        fade_duration = settings.CROSSFADE_DURATION
-        if clip1.duration > fade_duration and clip2.duration > fade_duration:
-            # Aplicar crossfade
-            clip1 = clip1.crossfadeout(fade_duration)
-            clip2 = clip2.crossfadein(fade_duration)
-            
-            # Concatenar os vídeos
-            final_clip = concatenate_videoclips([clip1, clip2], method="compose")
+        # Aplicar crossfade entre os clipes para transição suave
+        if len(clips) > 1:
+            logger.info("Aplicando concatenação com crossfade entre os clipes...")
+            # Aplica crossfade entre os clipes consecutivos
+            final_clip = concatenate_videoclips(clips, 
+                                               method='compose', 
+                                               padding=settings.CROSSFADE_DURATION)
         else:
-            # Se os vídeos forem muito curtos para a transição, apenas concatenar
-            final_clip = concatenate_videoclips([clip1, clip2])
+            final_clip = clips[0]
         
-        # Exportar o vídeo combinado
-        final_clip.write_videofile(combined_video_path, audio_codec='aac')
+        # Salvar o vídeo final temporariamente
+        temp_dir = settings.TEMP_VIDEO_DIR
+        output_filename = os.path.join(temp_dir, f"video_final_{int(time.time())}.mp4")
         
-        # Fechar os clips para liberar recursos
-        clip1.close()
-        clip2.close()
+        logger.info(f"Salvando vídeo concatenado: {output_filename}")
+        final_clip.write_videofile(output_filename, codec='libx264', audio_codec='aac')
+        
+        # Fechar os clipes para liberar recursos
+        for clip in clips:
+            clip.close()
         final_clip.close()
         
-        # Retornar informações sobre o vídeo gerado
-        return {
-            "status": "success",
-            "video_path": combined_video_path,
-            "duration": duration_per_segment * 2,  # Aproximadamente 10 segundos
-            "prompt": prompt,
-            "campaign_id": campaign_id
-        }
+        logger.info(f"Vídeo final salvo em: {output_filename}")
+        return output_filename
         
     except Exception as e:
-        print(f"Erro ao gerar vídeo: {str(e)}")
-        return {
-            "status": "error",
-            "error": str(e),
-            "prompt": prompt,
-            "campaign_id": campaign_id
-        }
+        logger.error(f"Erro ao concatenar vídeos: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 
-def check_video_generation_status(job_id: str) -> Optional[Dict[str, Any]]:
+def generate_video_from_prompt(prompt: str) -> Optional[str]:
     """
-    Esta função não é aplicável com a nova abordagem pois a geração é síncrona
+    Gera um vídeo completo a partir de um prompt dividindo em segmentos
     """
-    # Esta função não é mais necessária com a nova abordagem
-    # A geração agora é feita de forma síncrona
-    return {
-        "status": "not_applicable",
-        "message": "A geração de vídeo é feita de forma síncrona com a nova abordagem"
-    }
+    logger.info("Iniciando geração de vídeo a partir do prompt...")
+    
+    # Dividir o prompt em duas partes para gerar dois vídeos de 5 segundos cada
+    # e concatenar para obter um vídeo de 10 segundos com transição suave
+    prompt_length = len(prompt)
+    mid_point = prompt_length // 2
+    
+    # Dividir o prompt em duas partes aproximadamente iguais
+    part1 = prompt[:mid_point]
+    part2 = prompt[mid_point:]
+    
+    # Garantir que ambas as partes tenham algum conteúdo significativo
+    if len(part1.strip()) < 10:
+        part1 = prompt[:min(len(prompt)//2 + 20, len(prompt))]
+        part2 = prompt[min(len(prompt)//2 + 20, len(prompt)):]
+    
+    logger.info(f"Divisão do prompt: Parte 1 ({len(part1)} chars), Parte 2 ({len(part2)} chars)")
+    
+    # Gerar os dois segmentos de vídeo
+    segment1_path = generate_video_segment(part1, 1)
+    if not segment1_path:
+        logger.error("Falha ao gerar o primeiro segmento de vídeo")
+        return None
+    
+    segment2_path = generate_video_segment(part2, 2)
+    if not segment2_path:
+        logger.error("Falha ao gerar o segundo segmento de vídeo")
+        return None
+    
+    # Concatenar os segmentos
+    final_video_path = concatenate_video_segments([segment1_path, segment2_path])
+    
+    # Remover os arquivos temporários dos segmentos individuais
+    try:
+        if segment1_path and os.path.exists(segment1_path):
+            os.remove(segment1_path)
+            logger.info(f"Arquivo temporário removido: {segment1_path}")
+        if segment2_path and os.path.exists(segment2_path):
+            os.remove(segment2_path)
+            logger.info(f"Arquivo temporário removido: {segment2_path}")
+    except Exception as e:
+        logger.warning(f"Erro ao remover arquivos temporários: {e}")
+    
+    return final_video_path

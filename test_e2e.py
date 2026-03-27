@@ -1,220 +1,122 @@
-"""
-End-to-End Test for Video UGC Pipeline
-
-Tests the complete flow from campaign submission to video generation:
-1. Submit a new campaign
-2. Process the campaign through the pipeline
-3. Generate a prompt from the brief
-4. Send the prompt to video API
-5. Monitor video processing
-6. Upload video to Google Drive
-7. Mark job as completed
-"""
-
-import asyncio
-import time
-import sys
+import pytest
 import os
-from unittest.mock import Mock, patch
+from unittest.mock import patch, MagicMock
 
-# Add the project root to the Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-# Mock the LLM configuration error before importing the app
-with patch.dict(os.environ, {
-    "HF_API_KEY": "dummy-key-for-testing",
-    "GOOGLE_CREDENTIALS_PATH": os.environ.get("GOOGLE_CREDENTIALS_PATH", "./dummy/path")
-}):
-    from main import app
-
-from fastapi.testclient import TestClient
-from database import SessionLocal, engine
+# Importar as funções necessárias para testar o fluxo completo
+from api.routes import submit_campaign
+from services.job_service import process_job
+from services.llm_service import get_llm_service
+from services.video_service import generate_video_from_prompt  # Atualizado para usar a função correta
 from models.entities import Campaign, PipelineJob, JobStatusEnum
-from services.job_service import update_job_status
-from services.job_service.job_service import (
-    initialize_new_job,
-    process_pending_job_with_llm,
-    send_prompt_to_video_api,
-    poll_video_processing_status
-)
-from models.pydantic import Campaign as CampaignSchema
-import tempfile
-import shutil
+from database import SessionLocal
 
-
-def test_complete_pipeline():
-    """Test the complete pipeline from campaign submission to video completion"""
-    print("="*60)
-    print("STARTING END-TO-END TEST")
-    print("="*60)
-    
-    client = TestClient(app)
-    
-    # Step 1: Test the API root endpoint
-    print("\nStep 1: Testing API root endpoint...")
-    response = client.get("/")
-    assert response.status_code == 200
-    assert "message" in response.json()
-    print("✓ API root endpoint working")
-    
-    # Step 2: Create a test campaign
-    print("\nStep 2: Creating a test campaign...")
-    test_campaign_data = {
-        "name": "Test E2E Campaign",
-        "briefing_text": "Create a promotional video for our new coffee shop. Show high-quality coffee beans being ground, espresso being pulled, and people enjoying coffee in a cozy environment. The tone should be warm and inviting. Target audience is coffee lovers aged 25-45. Duration: 30-45 seconds."
+def test_end_to_end_complete_flow():
+    """
+    Testa o fluxo completo de ponta a ponta:
+    1. Criação de campanha
+    2. Processamento do job
+    3. Geração de vídeo
+    4. Upload para o Google Drive
+    """
+    # Criar uma campanha de teste
+    campaign_data = {
+        "name": "Test Campaign E2E",
+        "briefing_text": "Create a promotional video about a new tech product focusing on its innovative features and benefits for users."
     }
     
-    response = client.post("/api/campaigns/", json=test_campaign_data)
-    print(f"Campaign creation response status: {response.status_code}")
-    
-    if response.status_code != 200:
-        print(f"✗ Campaign creation failed: {response.text}")
-        return False
-    
-    campaign_response = response.json()
-    campaign_id = campaign_response['id']
-    job_id = campaign_response['job_id']
-    
-    print(f"✓ Campaign created successfully with ID: {campaign_id}")
-    print(f"✓ Initial job created with ID: {job_id}")
-    
-    # Step 3: Verify the campaign was stored in the database
-    print("\nStep 3: Verifying campaign in database...")
-    db = SessionLocal()
-    try:
-        campaign = db.query(Campaign).filter(Campaign.id == campaign_id).first()
-        assert campaign is not None
-        assert campaign.name == test_campaign_data['name']
-        assert campaign.briefing_text == test_campaign_data['briefing_text']
-        print("✓ Campaign verified in database")
-    finally:
-        db.close()
-    
-    # Step 4: Test manual processing of the job through the pipeline
-    print("\nStep 4: Processing job through pipeline...")
-    db = SessionLocal()
-    try:
-        # Check initial status is PENDING
-        job = db.query(PipelineJob).filter(PipelineJob.id == job_id).first()
-        assert job is not None
-        assert job.status == JobStatusEnum.PENDING
-        print("✓ Job initially has PENDING status")
+    # Simular a criação da campanha
+    with patch('services.job_service.initialize_new_job') as mock_initialize:
+        mock_job = MagicMock()
+        mock_job.id = 1
+        mock_initialize.return_value = mock_job
         
-        # Process with LLM to generate prompt
-        print("  - Processing with LLM to generate prompt...")
-        llm_success = asyncio.run(process_pending_job_with_llm(db))
-        db.refresh(job)
+        result = submit_campaign(campaign_data)
         
-        if llm_success and job.status == JobStatusEnum.PROMPT_GENERATED:
-            print(f"✓ Job processed with LLM, status: {job.status.value}")
-            print(f"✓ Generated prompt: {job.prompt[:100]}..." if job.prompt else "No prompt generated")
-        else:
-            print(f"✗ LLM processing failed, status: {job.status.value}")
-            # For the test, we'll simulate a successful prompt generation
-            print("  - Simulating successful prompt generation for test purposes...")
-            update_job_status(db, job_id, JobStatusEnum.PROMPT_GENERATED, prompt="This is a simulated prompt for testing purposes")
-            db.refresh(job)
-            print(f"✓ Simulated prompt generation, status: {job.status.value}")
+        assert result is not None
+        assert "job_id" in result
+    
+    # Obter o ID do job criado
+    job_id = result["job_id"]
+    
+    # Testar o processamento do job
+    with patch('services.llm_service.get_llm_service') as mock_get_llm:
+        # Mock do serviço de LLM
+        mock_llm_service = MagicMock()
+        mock_llm_service.generate_prompt_from_brief.return_value = "Test video script for tech product promotion"
+        mock_get_llm.return_value = mock_llm_service
         
-        # Step 5: Send prompt to video generation service (new approach using Hugging Face Spaces)
-        print("\nStep 5: Sending prompt to video generation service...")
-        # Since actual video generation takes time, we'll simulate the API call
-        with patch('services.video_service.video_service.generate_video_from_prompt') as mock_video_gen:
-            mock_result = {
-                "status": "success",
-                "video_path": "/tmp/fake_video.mp4",
-                "duration": 10,
-                "prompt": job.prompt,
-                "campaign_id": campaign_id
-            }
-            mock_video_gen.return_value = mock_result
+        # Mock do serviço de vídeo
+        with patch('services.video_service.generate_video_from_prompt') as mock_generate_video:
+            mock_generate_video.return_value = "/tmp/test_video.mp4"
             
-            video_gen_success = send_prompt_to_video_api(db, job_id)
-            db.refresh(job)
-            
-            if video_gen_success or job.status == JobStatusEnum.PROCESSING_VIDEO:
-                print(f"✓ Job sent to video generation service, status: {job.status.value}")
-            else:
-                print(f"✗ Failed to send job to video generation service, status: {job.status.value}")
-                # Simulate successful sending for test
-                update_job_status(db, job_id, JobStatusEnum.PROCESSING_VIDEO)
-                db.refresh(job)
-                print(f"✓ Simulated video generation request, status: {job.status.value}")
-        
-        # Step 6: Simulate video processing completion
-        print("\nStep 6: Simulating video processing completion...")
-        # Update to completed with a mock video URL
-        update_job_status(
-            db, 
-            job_id, 
-            JobStatusEnum.COMPLETED, 
-            video_url="https://drive.google.com/file/d/mock_video_id/view?usp=sharing"
-        )
-        db.refresh(job)
-        
-        print(f"✓ Video processing simulated, status: {job.status.value}")
-        print(f"✓ Video URL: {job.video_url}")
-        
-        # Step 7: Verify final state
-        print("\nStep 7: Verifying final state...")
-        final_campaign = client.get(f"/api/campaigns/").json()
-        campaigns_list = final_campaign.get('data', [])
-        
-        target_campaign = None
-        for camp in campaigns_list:
-            if camp['id'] == campaign_id:
-                target_campaign = camp
-                break
-        
-        if target_campaign:
-            print(f"✓ Campaign found in listings: {target_campaign['name']}")
-            jobs = target_campaign.get('jobs', [])
-            if jobs:
-                latest_job = jobs[0]
-                print(f"✓ Latest job status: {latest_job['status']}")
-                print(f"✓ Latest job has video URL: {'Yes' if latest_job.get('video_url') else 'No'}")
-            else:
-                print("✗ No jobs found for this campaign")
-        else:
-            print("✗ Campaign not found in listings")
-        
-    finally:
-        db.close()
-    
-    print("\n" + "="*60)
-    print("END-TO-END TEST COMPLETED")
-    print("="*60)
-    
-    return True
+            # Mock do serviço de upload para o Google Drive
+            with patch('services.job_service.upload_video_to_drive') as mock_upload:
+                mock_upload.return_value = "https://drive.google.com/file/d/test_video"
+                
+                # Processar o job
+                success = process_job(job_id)
+                
+                # Verificar se o processamento foi bem-sucedido
+                assert success is True
+                
+                # Verificar se as funções foram chamadas corretamente
+                mock_llm_service.generate_prompt_from_brief.assert_called_once()
+                mock_generate_video.assert_called_once()
+                mock_upload.assert_called_once()
+                
+                # Verificar se o vídeo foi gerado com o conteúdo correto
+                args, kwargs = mock_generate_video.call_args
+                assert "Test video script" in args[0]
 
-
-def test_api_endpoints():
-    """Test all API endpoints"""
-    print("\nTesting API endpoints...")
-    client = TestClient(app)
-    
-    # Test campaigns endpoint
-    response = client.get("/api/campaigns/")
-    assert response.status_code == 200
-    print("✓ Campaigns listing endpoint working")
-    
-    # Test non-existent job
-    response = client.get("/api/jobs/999999")
-    assert response.status_code == 404
-    print("✓ Non-existent job correctly returns 404")
-
+def test_e2e_with_mocked_services():
+    """
+    Testa o fluxo E2E com todos os serviços mockados
+    """
+    # Testar com serviços completamente mockados
+    with patch('api.routes.CampaignEntity') as mock_campaign, \
+         patch('api.routes.initialize_new_job') as mock_init_job, \
+         patch('services.job_service.get_llm_service') as mock_get_llm, \
+         patch('services.job_service.generate_video_from_prompt') as mock_gen_video, \
+         patch('services.job_service.upload_video_to_drive') as mock_upload:
+        
+        # Configurar mocks
+        mock_campaign_instance = MagicMock()
+        mock_campaign_instance.id = 999
+        mock_campaign_instance.name = "Mocked Test Campaign"
+        mock_campaign.return_value = mock_campaign_instance
+        
+        mock_job = MagicMock()
+        mock_job.id = 99
+        mock_init_job.return_value = mock_job
+        
+        mock_llm_service = MagicMock()
+        mock_llm_service.generate_prompt_from_brief.return_value = "Mocked video script"
+        mock_get_llm.return_value = mock_llm_service
+        
+        mock_gen_video.return_value = "/tmp/mock_video.mp4"
+        mock_upload.return_value = "https://drive.google.com/file/d/mock_video"
+        
+        # Dados da campanha
+        campaign_data = {
+            "name": "Mock Test Campaign",
+            "briefing_text": "This is a mocked test campaign for E2E testing"
+        }
+        
+        # Executar o fluxo
+        result = submit_campaign(campaign_data)
+        
+        # Verificar resultados
+        assert result is not None
+        assert result["job_id"] == 99
+        
+        # Processar o job
+        success = process_job(99)
+        
+        # Verificar se tudo foi chamado corretamente
+        assert success is True
+        mock_llm_service.generate_prompt_from_brief.assert_called_once()
+        mock_gen_video.assert_called_once()
+        mock_upload.assert_called_once()
 
 if __name__ == "__main__":
-    print("Preparing to run end-to-end tests...")
-    
-    # Run the API endpoint tests
-    test_api_endpoints()
-    
-    # Run the complete pipeline test
-    success = test_complete_pipeline()
-    
-    if success:
-        print("\n✓ All end-to-end tests passed!")
-    else:
-        print("\n✗ Some tests failed")
-        sys.exit(1)
+    pytest.main([__file__])

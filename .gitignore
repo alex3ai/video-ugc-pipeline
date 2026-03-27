@@ -6,7 +6,7 @@ venv/
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
+*.class
 *.so
 .Python
 build/
@@ -51,3 +51,7 @@ frontend/.env.local
 *.db
 *.sqlite
 *.sqlite3
+
+# Arquivos de credenciais e chaves de API
+video_ugc_pipeline.db
+secrets.*

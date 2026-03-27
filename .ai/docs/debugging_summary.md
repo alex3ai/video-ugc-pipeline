@@ -6,7 +6,7 @@
 - **Backend:** Python 3.x + FastAPI
 - **Banco de Dados:** SQLite (via SQLAlchemy 2.0)
 - **Frontend:** Next.js 13 + React 18 + TypeScript
-- **APIs Externas:** Google Gemini, API de Vídeo (Hugging Face ou similar), Google Drive
+- **APIs Externas:** Hugging Face LLM e T2V, Google Drive
 - **Gerenciamento de Ambiente:** python-dotenv + pydantic-settings
 - **Servidor:** Uvicorn (ASGI)
 
@@ -188,7 +188,7 @@ python -c "import sqlite3; conn = sqlite3.connect('video_ugc_pipeline.db'); conn
 
 ### ✅ [2026-03-25] Erro de dupla declaração de app FastAPI em main.py
 - **Problema:** A aplicação FastAPI era declarada duas vezes em `main.py`, causando conflitos
-- **Causa:** Código duplicado durante desenvolvimento resultou em dois objetos `app = FastAPI(...)` na mesma aplicação
+- **Causa:** Código duplicado durante desenvolvimento resultou em dois objetos `app = FastAPI(...)`
 - **Solução:**
   - Remover declaração duplicada do objeto FastAPI
   - Manter apenas uma instância e adicionar o lifespan corretamente à única declaração
@@ -199,6 +199,32 @@ python -c "import sqlite3; conn = sqlite3.connect('video_ugc_pipeline.db'); conn
 - **Solução:**
   - Remover import desnecessário da função inexistente
   - Confirmar que a funcionalidade de upload para o Google Drive é coberta por outras funções já existentes
+
+## 6. Soluções Recentes Implementadas
+
+### ✅ [2026-03-26] Problemas com o InferenceClient e provedores do Hugging Face
+- **Problema:** Erros de API do Hugging Face com mensagens como "model_not_available" e "Cannot select auto-router when using non-Hugging Face API key"
+- **Causa:** O modelo Qwen2.5-7B-Instruct não estava disponível com o provedor Together, e o código estava tentando usar provedores incompatíveis
+- **Solução:**
+  - Atualizar o arquivo `.env` para usar modelo compatível: `meta-llama/Meta-Llama-3-8B-Instruct` com provedor `huggingface`
+  - Atualizar o arquivo `config.py` para refletir as novas configurações
+  - Modificar o serviço de LLM para usar as configurações do arquivo de configuração corretamente
+  - Implementar fallback para diferentes provedores e modelos quando o primeiro não estiver disponível
+
+### ✅ [2026-03-26] Problemas com chamadas assíncronas no serviço de job
+- **Problema:** Erro "'coroutine' object is not subscriptable" ao chamar a função `generate_prompt_from_brief`
+- **Causa:** A função `generate_prompt_from_brief` é assíncrona, mas estava sendo chamada de forma síncrona
+- **Solução:**
+  - Importar `asyncio` no arquivo `services/job_service/job_service.py`
+  - Chamar a função assíncrona usando `asyncio.run(llm_service.generate_prompt_from_brief(...))`
+  - Certificar que todas as chamadas assíncronas são tratadas corretamente
+
+### ✅ [2026-03-26] Cache de configurações no serviço de LLM
+- **Problema:** O serviço de LLM estava usando configurações antigas mesmo após atualização do arquivo .env
+- **Causa:** O serviço LLM estava armazenando em cache as configurações antigas em uma instância singleton
+- **Solução:**
+  - Forçar reconstrução da instância do serviço de LLM sempre que a função `get_llm_service()` é chamada
+  - Isso garante que as configurações mais recentes sejam usadas em cada requisição
 
 ## Sumário de Debugging - Video_UGC_Pipeline
 

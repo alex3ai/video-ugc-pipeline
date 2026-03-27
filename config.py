@@ -14,15 +14,16 @@ class Settings(BaseSettings):
     GROK_API_BASE_URL: str = os.getenv("GROK_API_BASE_URL", "https://api.x.ai/v1")
     GROK_MODEL: str = os.getenv("GROK_MODEL", "grok-beta")
     
-    # Chaves e configurações para o Llama 3 via Hugging Face - gratuito
+    # Chaves e configurações para o LLM via Hugging Face - gratuito
     LLAMA_API_KEY: str = os.getenv("LLAMA_API_KEY", "")
     HF_API_KEY: str = os.getenv("HF_API_KEY", "")  # Alternativa padrão do Hugging Face
-    LLAMA_API_BASE_URL: str = os.getenv("LLAMA_API_BASE_URL", 
-        "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct")
-    # Updated to use the correct router URL as per the error message
-    HF_INFERENCE_API_URL: str = os.getenv("HF_INFERENCE_API_URL", 
-        "https://router.huggingface.co")
-
+    HF_MODEL: str = os.getenv("HF_MODEL", "meta-llama/Meta-Llama-3-8B-Instruct")
+    HF_PROVIDER: str = os.getenv("HF_PROVIDER", "huggingface")
+    
+    # Configurações para o modelo de vídeo
+    HF_VIDEO_PROVIDER: str = os.getenv("HF_VIDEO_PROVIDER", "fal-ai")
+    HF_VIDEO_MODEL: str = os.getenv("HF_VIDEO_MODEL", "tencent/HunyuanVideo-1.5")
+    
     # Configurações para a API de vídeo - não mais usada com nova abordagem
     VIDEO_API_URL: str = os.getenv("VIDEO_API_URL", "")
     VIDEO_API_KEY: str = os.getenv("VIDEO_API_KEY", "")

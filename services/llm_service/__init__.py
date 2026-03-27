@@ -21,10 +21,13 @@ class LLMService:
             hf_token = os.getenv("HF_TOKEN") or os.getenv("LLAMA_API_KEY") or os.getenv("HF_API_KEY")
             if hf_token:
                 self.provider = "huggingface"
-                # Configurar o InferenceClient com o token
-                self.client = InferenceClient(token=hf_token)
                 self.model = settings.HF_MODEL
                 self.provider_name = settings.HF_PROVIDER
+                # Configurar o InferenceClient com provider explícito para evitar auto-router
+                self.client = InferenceClient(
+                    provider=self.provider_name,
+                    api_key=hf_token
+                )
             else:
                 raise ValueError("In free-only mode, HF_TOKEN, LLAMA_API_KEY or HF_API_KEY must be set")
         else:
@@ -40,10 +43,13 @@ class LLMService:
                 hf_token = os.getenv("HF_TOKEN") or os.getenv("LLAMA_API_KEY") or os.getenv("HF_API_KEY")
                 if hf_token:
                     self.provider = "huggingface"
-                    # Configurar o InferenceClient com o token
-                    self.client = InferenceClient(token=hf_token)
                     self.model = settings.HF_MODEL
                     self.provider_name = settings.HF_PROVIDER
+                    # Configurar o InferenceClient com provider explícito para evitar auto-router
+                    self.client = InferenceClient(
+                        provider=self.provider_name,
+                        api_key=hf_token
+                    )
                 else:
                     raise ValueError("Either GROK_API_KEY or (HF_TOKEN/LLAMA_API_KEY/HF_API_KEY) must be set")
 
@@ -222,11 +228,11 @@ class LLMService:
                     return response.choices[0].message.content
                 except Exception as e:
                     print(f"HuggingFace API error: {e}")
-                    # Se o modelo não estiver disponível com o provedor, tentar com um modelo padrão do Hugging Face
+                    # Se o modelo não estiver disponível com o provedor, tentar com um modelo alternativo
                     try:
-                        # Usar um modelo diretamente com o InferenceClient
+                        # Usar modelo Llama 3.2 leve e suportado via HF
                         response = self.client.chat.completions.create(
-                            model="microsoft/DialoGPT-medium",
+                            model="meta-llama/Llama-3.2-3B-Instruct",
                             messages=[{"role": "user", "content": prompt}],
                             max_tokens=500,
                             temperature=0.7

@@ -21,11 +21,9 @@ def test_video_api_connection():
     Função de teste para conexão com API de vídeo
     """
     try:
-        # Obter token do Hugging Face
-        hf_token = os.getenv("HF_TOKEN") or os.getenv("HF_API_KEY")
-        
         # Testar a conexão com o modelo de vídeo
-        client = Client(settings.HF_SPACE_MODEL, hf_token=hf_token)
+        # O gradio_client usa HF_TOKEN automaticamente se estiver definido no ambiente
+        client = Client(settings.HF_SPACE_MODEL)
         return True
     except Exception as e:
         logger.error(f"Erro ao testar conexão com API de vídeo: {e}")
@@ -39,11 +37,9 @@ def generate_video_with_huggingface(text_prompt: str) -> Optional[str]:
     try:
         logger.info(f"Gerando vídeo com prompt: {text_prompt[:50]}...")
 
-        # Obter token do Hugging Face
-        hf_token = os.getenv("HF_TOKEN") or os.getenv("HF_API_KEY")
-        
-        # Usar o Gradio Client para se conectar ao espaço Hugging Face com autenticação
-        client = Client(settings.HF_SPACE_MODEL, hf_token=hf_token)
+        # Usar o Gradio Client para se conectar ao espaço Hugging Face
+        # O gradio_client usa HF_TOKEN automaticamente se estiver definido no ambiente
+        client = Client(settings.HF_SPACE_MODEL)
 
         # Chamar o espaço para gerar o vídeo
         result = client.predict(
@@ -133,8 +129,8 @@ def warmup_space():
     Acorda o Space se estiver dormindo antes de gerar vídeo
     """
     try:
-        hf_token = os.getenv("HF_TOKEN") or os.getenv("HF_API_KEY")
-        client = Client(settings.HF_SPACE_MODEL, hf_token=hf_token)
+        # O gradio_client usa HF_TOKEN automaticamente se estiver definido no ambiente
+        client = Client(settings.HF_SPACE_MODEL)
         logger.info("Space acordado e pronto.")
     except Exception as e:
         logger.warning(f"Warmup do Space falhou: {e}")

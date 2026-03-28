@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from gradio_client import Client
+from huggingface_hub import login
 from moviepy.editor import VideoFileClip, concatenate_videoclips
 import requests
 import logging
@@ -16,13 +17,30 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def _authenticate_huggingface():
+    """
+    Autentica no Hugging Face usando o token das variáveis de ambiente
+    """
+    hf_token = os.getenv("HF_TOKEN") or os.getenv("HF_API_KEY")
+    if hf_token:
+        try:
+            login(token=hf_token)
+            logger.info("Autenticação Hugging Face realizada com sucesso.")
+        except Exception as e:
+            logger.warning(f"Falha na autenticação Hugging Face: {e}")
+    else:
+        logger.warning("Nenhum token Hugging Face encontrado.")
+
+
 def test_video_api_connection():
     """
     Função de teste para conexão com API de vídeo
     """
     try:
+        # Autenticar no Hugging Face antes de acessar o Space
+        _authenticate_huggingface()
+        
         # Testar a conexão com o modelo de vídeo
-        # O gradio_client usa HF_TOKEN automaticamente se estiver definido no ambiente
         client = Client(settings.HF_SPACE_MODEL)
         return True
     except Exception as e:
@@ -37,9 +55,17 @@ def generate_video_with_huggingface(text_prompt: str) -> Optional[str]:
     try:
         logger.info(f"Gerando vídeo com prompt: {text_prompt[:50]}...")
 
+        # Autenticar no Hugging Face antes de acessar o Space
+        _authenticate_huggingface()
+
         # Usar o Gradio Client para se conectar ao espaço Hugging Face
-        # O gradio_client usa HF_TOKEN automaticamente se estiver definido no ambiente
         client = Client(settings.HF_SPACE_MODEL)
+        
+        # Listar endpoints disponíveis para debug
+        try:
+            logger.info(f"Endpoints disponíveis no Space: {client.endpoints}")
+        except:
+            pass
 
         # Chamar o espaço para gerar o vídeo
         result = client.predict(
@@ -129,7 +155,9 @@ def warmup_space():
     Acorda o Space se estiver dormindo antes de gerar vídeo
     """
     try:
-        # O gradio_client usa HF_TOKEN automaticamente se estiver definido no ambiente
+        # Autenticar no Hugging Face antes de acessar o Space
+        _authenticate_huggingface()
+        
         client = Client(settings.HF_SPACE_MODEL)
         logger.info("Space acordado e pronto.")
     except Exception as e:

@@ -1,11 +1,18 @@
 import os
 import tempfile
-from typing import Optional
+from typing import Optional, List
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
 # Carregar variáveis de ambiente do arquivo .env
 load_dotenv()
+
+# Lista de modelos gratuitos para fallback (priorizando Llama)
+FREE_SERVERLESS_MODELS: List[str] = [
+    "meta-llama/Meta-Llama-3.1-8B-Instruct",  # ← principal (você já tem acesso)
+    "meta-llama/Meta-Llama-3-8B-Instruct",    # ← fallback (você também tem acesso)
+    "Qwen/Qwen2.5-7B-Instruct",               # ← fallback extra
+]
 
 
 class Settings(BaseSettings):

@@ -21,8 +21,11 @@ def test_video_api_connection():
     Função de teste para conexão com API de vídeo
     """
     try:
+        # Obter token do Hugging Face
+        hf_token = os.getenv("HF_TOKEN") or os.getenv("HF_API_KEY")
+        
         # Testar a conexão com o modelo de vídeo
-        client = Client(settings.HF_SPACE_MODEL)
+        client = Client(settings.HF_SPACE_MODEL, hf_token=hf_token)
         return True
     except Exception as e:
         logger.error(f"Erro ao testar conexão com API de vídeo: {e}")
@@ -35,16 +38,19 @@ def generate_video_with_huggingface(text_prompt: str) -> Optional[str]:
     """
     try:
         logger.info(f"Gerando vídeo com prompt: {text_prompt[:50]}...")
+
+        # Obter token do Hugging Face
+        hf_token = os.getenv("HF_TOKEN") or os.getenv("HF_API_KEY")
         
-        # Usar o Gradio Client para se conectar ao espaço Hugging Face
-        client = Client(settings.HF_SPACE_MODEL)
-        
+        # Usar o Gradio Client para se conectar ao espaço Hugging Face com autenticação
+        client = Client(settings.HF_SPACE_MODEL, hf_token=hf_token)
+
         # Chamar o espaço para gerar o vídeo
         result = client.predict(
             text_prompt,
             api_name="/infer"
         )
-        
+
         # Retorna o caminho para o vídeo gerado
         return result
     except Exception as e:
@@ -114,12 +120,24 @@ def concatenate_video_segments(segment_paths: list) -> Optional[str]:
         
         logger.info(f"Vídeo final salvo em: {output_filename}")
         return output_filename
-        
+
     except Exception as e:
         logger.error(f"Erro ao concatenar vídeos: {e}")
         import traceback
         traceback.print_exc()
         return None
+
+
+def warmup_space():
+    """
+    Acorda o Space se estiver dormindo antes de gerar vídeo
+    """
+    try:
+        hf_token = os.getenv("HF_TOKEN") or os.getenv("HF_API_KEY")
+        client = Client(settings.HF_SPACE_MODEL, hf_token=hf_token)
+        logger.info("Space acordado e pronto.")
+    except Exception as e:
+        logger.warning(f"Warmup do Space falhou: {e}")
 
 
 def generate_video_from_prompt(prompt: str) -> Optional[str]:
@@ -128,6 +146,9 @@ def generate_video_from_prompt(prompt: str) -> Optional[str]:
     """
     logger.info("Iniciando geração de vídeo a partir do prompt...")
     
+    # Warmup do Space para garantir que esteja ativo antes de gerar vídeo
+    warmup_space()
+
     # Dividir o prompt em duas partes para gerar dois vídeos de 5 segundos cada
     # e concatenar para obter um vídeo de 10 segundos com transição suave
     prompt_length = len(prompt)

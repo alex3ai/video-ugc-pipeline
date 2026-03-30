@@ -128,6 +128,14 @@ Mais informações sobre os agentes podem ser encontradas no arquivo [AGENTS.md]
 
 Este projeto está licenciado sob a MIT License - veja o arquivo [LICENSE](LICENSE) para detalhes.
 
+<<<<<<< HEAD
 ## 👥 Contribuição
 
 Contribuições são bem-vindas! Sinta-se à vontade para abrir uma issue ou enviar um pull request.
+=======
+## 👨‍💻 Autor
+
+- Alex Oliveira Mendes - Desenvolvedor Principal
+
+Projeto criado para demonstrar a aplicação de tecnologias modernas na automação de criação de conteúdo de vídeo.
+>>>>>>> f02086f77a5940f08fed4bc748003a45b291f75e

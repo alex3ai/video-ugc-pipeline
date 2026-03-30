@@ -28,6 +28,24 @@
 - **Erro**: `ModuleNotFoundError` para `gradio_client` ou `moviepy`
 - **Solução**: Execute `pip install -r requirements.txt` para instalar as dependências
 
+### Erros de Integração com Hugging Face Hub
+- **Erro**: `404 Client Error`, `Repository Not Found` ou `Space não acessível`
+- **Causa**: Nome do repositório incorreto ou tipo de repositório errado (usando `repo_type="model"` em vez de `repo_type="space"`)
+- **Solução**: 
+  1. Verifique se o `HF_SPACE_MODEL` está configurado corretamente com o nome completo do repositório (ex: `AlexMendes33/Wan-AI-Wan2.1-T2V-1.3B`)
+  2. Confirme que o tipo de repositório está correto como "space" e não "model"
+  3. Execute `python test_video_connection.py` para verificar a conectividade
+
+### Erros de Autenticação com Hugging Face
+- **Erro**: Mensagem de aviso `"HF_TOKEN is set and is the current active token independently from the token you've just configured"`
+- **Causa**: Chamada redundante à função `huggingface_hub.login()` quando o token já está configurado como variável de ambiente
+- **Solução**: Remover chamadas manuais de login quando o token já está disponível como variável de ambiente
+
+### Erros com o Cliente Gradio
+- **Erro**: `Client.__init__() got an unexpected keyword argument 'hf_token'`
+- **Causa**: Uso do parâmetro errado ao inicializar o cliente Gradio
+- **Solução**: Use o parâmetro `token` ao invés de `hf_token` ao inicializar o cliente: `Client(repo_id, token=hf_token)`
+
 ## Drive Service (Google Drive)
 
 ### Erros de Credenciais
@@ -84,4 +102,9 @@ python -c "from services.drive_service import test_drive_connection; print(test_
 ### Rodar testes unitários
 ```bash
 python test_services.py -v
+```
+
+### Testar a integração de vídeo específica
+```bash
+python test_video_connection.py
 ```

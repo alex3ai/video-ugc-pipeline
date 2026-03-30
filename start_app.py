@@ -16,7 +16,8 @@ def install_requirements():
         "pydantic-settings",
         "uvicorn",
         "gradio-client",
-        "moviepy"
+        "moviepy",
+        "huggingface_hub"
     ]
     
     for req in requirements:
@@ -38,7 +39,7 @@ def main():
     print("\nChecking environment variables:")
     env_vars = [
         ("HF_API_KEY", os.environ.get('HF_API_KEY')),
-        ("HF_SPACE_MODEL", os.environ.get('HF_SPACE_MODEL', 'Wan-AI/Wan2.1-T2V-1.3B')),  # New approach
+        ("HF_SPACE_MODEL", os.environ.get('HF_SPACE_MODEL', 'AlexMendes33/Wan-AI-Wan2.1-T2V-1.3B')),  # Updated to user's Space
         ("GOOGLE_CREDENTIALS_PATH", os.environ.get('GOOGLE_CREDENTIALS_PATH')),
         ("LLAMA_API_KEY or HF_API_KEY", os.environ.get('LLAMA_API_KEY') or os.environ.get('HF_API_KEY')),
         ("DATABASE_URL", os.environ.get('DATABASE_URL', 'sqlite:///./video_ugc_pipeline.db'))
@@ -50,13 +51,32 @@ def main():
         else:
             print(f"⚠ {name} is NOT set (this may cause issues)")
     
+    # Import and test video connection
+    print("\nTesting video provider connection...")
+    try:
+        from services.video_service.video_service import test_video_api_connection, validate_hf_repo_access
+        from config import settings
+
+        if validate_hf_repo_access(settings.HF_SPACE_MODEL):
+            print("✓ Video provider repository is accessible")
+            if test_video_api_connection():
+                print("✓ Video provider connection successful")
+            else:
+                print("⚠ Video provider connection failed - please check your configuration")
+        else:
+            print("⚠ Video provider repository not accessible - please check your configuration and permissions")
+    except ImportError as e:
+        print(f"⚠ Could not test video provider: {e}")
+    except Exception as e:
+        print(f"⚠ Error testing video provider: {e}")
+    
     print("\nStarting the application...")
     print("The application is now running. You can:")
     print("- Submit campaigns to /api/campaigns/")
     print("- List campaigns at /api/campaigns/")
     print("- Access the worker logs in the console")
     print("- Visit http://localhost:8000 for API documentation")
-    print("- The system will now generate videos using free Hugging Face Spaces")
+    print("- The system will now generate videos using your configured Hugging Face Space")
     
     # Start the application
     subprocess.run([sys.executable, "-m", "uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"])

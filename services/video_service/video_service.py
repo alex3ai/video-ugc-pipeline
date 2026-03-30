@@ -6,7 +6,8 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from gradio_client import Client
-from huggingface_hub import login
+from huggingface_hub import login, HfApi
+from huggingface_hub.utils import RepositoryNotFoundError
 from moviepy.editor import VideoFileClip, concatenate_videoclips
 import requests
 import logging
@@ -19,17 +20,65 @@ logger = logging.getLogger(__name__)
 
 def _authenticate_huggingface():
     """
-    Autentica no Hugging Face usando o token das variáveis de ambiente
+    Verifica se o token do Hugging Face está disponível nas variáveis de ambiente
     """
     hf_token = os.getenv("HF_TOKEN") or os.getenv("HF_API_KEY")
-    if hf_token:
-        try:
-            login(token=hf_token)
-            logger.info("Autenticação Hugging Face realizada com sucesso.")
-        except Exception as e:
-            logger.warning(f"Falha na autenticação Hugging Face: {e}")
+    if not hf_token:
+        logger.warning("Nenhum token Hugging Face encontrado nas variáveis de ambiente.")
+        return None
     else:
-        logger.warning("Nenhum token Hugging Face encontrado.")
+        logger.info("Token Hugging Face encontrado nas variáveis de ambiente.")
+        return hf_token
+
+
+def validate_hf_space_access(space_id: str) -> bool:
+    """
+    Valida se o Space existe e está acessível
+    """
+    try:
+        hf_token = _authenticate_huggingface()
+        if not hf_token:
+            logger.error("Token Hugging Face não configurado no ambiente")
+            return False
+
+        api = HfApi(token=hf_token)
+        # Verifica se o Space existe com repo_type="space"
+        api.repo_info(repo_id=space_id, repo_type="space")
+        logger.info(f"Space {space_id} encontrado e acessível.")
+        return True
+    except RepositoryNotFoundError:
+        logger.error(f"Space {space_id} não encontrado. Verifique o nome do repositório.")
+        return False
+    except Exception as e:
+        logger.error(f"Não foi possível acessar o Space {space_id}: {e}")
+        return False
+
+
+def check_space_status(space_id: str):
+    """
+    Verifica o status atual do Space
+    """
+    try:
+        hf_token = _authenticate_huggingface()
+        if not hf_token:
+            logger.error("Token Hugging Face não configurado no ambiente")
+            return None
+
+        api = HfApi(token=hf_token)
+        runtime = api.get_space_runtime(space_id)
+        
+        # O retorno pode ser um dicionário ou objeto, vamos verificar
+        if hasattr(runtime, 'stage'):
+            status = runtime.stage.value if hasattr(runtime.stage, 'value') else runtime.stage
+        else:
+            # Se runtime for um dicionário, extrair o status
+            status = runtime.get('stage', 'unknown') if isinstance(runtime, dict) else 'unknown'
+            
+        logger.info(f"Status do Space {space_id}: {status}")
+        return status
+    except Exception as e:
+        logger.error(f"Não foi possível obter o status do Space {space_id}: {e}")
+        return None
 
 
 def test_video_api_connection():
@@ -37,11 +86,28 @@ def test_video_api_connection():
     Função de teste para conexão com API de vídeo
     """
     try:
-        # Autenticar no Hugging Face antes de acessar o Space
-        _authenticate_huggingface()
-        
-        # Testar a conexão com o modelo de vídeo
-        client = Client(settings.HF_SPACE_MODEL)
+        # Verificar autenticação
+        hf_token = _authenticate_huggingface()
+        if not hf_token:
+            return False
+
+        # Validar se o Space está acessível
+        if not validate_hf_space_access(settings.HF_SPACE_MODEL):
+            logger.error(f"O Space {settings.HF_SPACE_MODEL} não está acessível")
+            return False
+
+        # Verificar status do Space
+        status = check_space_status(settings.HF_SPACE_MODEL)
+        if not status:
+            logger.warning(f"Não foi possível obter o status do Space {settings.HF_SPACE_MODEL}, continuando assim mesmo...")
+        else:
+            if status == "Sleeping":
+                logger.info(f"O Space {settings.HF_SPACE_MODEL} está dormindo. Será ativado automaticamente.")
+            elif status in ["Building", "Running"]:
+                logger.info(f"O Space {settings.HF_SPACE_MODEL} está em estado {status}")
+
+        # Testar a conexão com o modelo de vídeo - agora passando o token corretamente
+        client = Client(settings.HF_SPACE_MODEL, token=hf_token)
         return True
     except Exception as e:
         logger.error(f"Erro ao testar conexão com API de vídeo: {e}")
@@ -50,28 +116,58 @@ def test_video_api_connection():
 
 def generate_video_with_huggingface(text_prompt: str) -> Optional[str]:
     """
-    Gera um único vídeo de até 5 segundos com base no prompt de texto
+    Gera um único vídeo com base no prompt de texto
     """
     try:
         logger.info(f"Gerando vídeo com prompt: {text_prompt[:50]}...")
 
-        # Autenticar no Hugging Face antes de acessar o Space
-        _authenticate_huggingface()
+        # Obter token
+        hf_token = _authenticate_huggingface()
+        if not hf_token:
+            logger.error("Token Hugging Face não configurado no ambiente")
+            return None
 
-        # Usar o Gradio Client para se conectar ao espaço Hugging Face
-        client = Client(settings.HF_SPACE_MODEL)
-        
+        # Validar o acesso ao Space antes de prosseguir
+        if not validate_hf_space_access(settings.HF_SPACE_MODEL):
+            logger.error(f"Space de vídeo {settings.HF_SPACE_MODEL} não está acessível")
+            return None
+
+        # Verificar status do Space
+        status = check_space_status(settings.HF_SPACE_MODEL)
+        if status and status == "Sleeping":
+            logger.info("O Space está dormindo, aguardando wake-up...")
+            # O cliente do Gradio já faz o wake-up automaticamente, então vamos continuar
+
+        # Usar o Gradio Client para se conectar ao Space Hugging Face
+        client = Client(settings.HF_SPACE_MODEL, token=hf_token)
+
         # Listar endpoints disponíveis para debug
         try:
             logger.info(f"Endpoints disponíveis no Space: {client.endpoints}")
         except:
             pass
 
-        # Chamar o espaço para gerar o vídeo
-        result = client.predict(
-            text_prompt,
-            api_name="/infer"
-        )
+        # Chamar o Space para gerar o vídeo
+        # O nome do endpoint pode variar, vamos tentar diferentes possibilidades
+        possible_endpoints = ["/infer", "/predict", "/generate", "/run"]
+        result = None
+        
+        for endpoint in possible_endpoints:
+            try:
+                logger.info(f"Tentando endpoint: {endpoint}")
+                result = client.predict(
+                    text_prompt,
+                    api_name=endpoint
+                )
+                if result:
+                    break
+            except Exception as e:
+                logger.info(f"Endpoint {endpoint} falhou: {e}")
+                continue
+
+        if not result:
+            logger.error("Nenhum endpoint funcionou para gerar o vídeo")
+            return None
 
         # Retorna o caminho para o vídeo gerado
         return result
@@ -155,13 +251,42 @@ def warmup_space():
     Acorda o Space se estiver dormindo antes de gerar vídeo
     """
     try:
-        # Autenticar no Hugging Face antes de acessar o Space
-        _authenticate_huggingface()
-        
-        client = Client(settings.HF_SPACE_MODEL)
-        logger.info("Space acordado e pronto.")
+        # Verificar autenticação
+        hf_token = _authenticate_huggingface()
+        if not hf_token:
+            logger.error("Token Hugging Face não configurado no ambiente")
+            return False
+
+        # Validar o acesso ao Space antes de prosseguir
+        if not validate_hf_space_access(settings.HF_SPACE_MODEL):
+            logger.error(f"Space de vídeo {settings.HF_SPACE_MODEL} não está acessível")
+            return False
+
+        # Verificar status do Space
+        status = check_space_status(settings.HF_SPACE_MODEL)
+        if not status:
+            logger.warning(f"Não foi possível obter o status do Space {settings.HF_SPACE_MODEL}")
+            # Tentar mesmo assim
+            client = Client(settings.HF_SPACE_MODEL, token=hf_token)
+            logger.info("Space acordado e pronto.")
+            return True
+
+        if status == "Sleeping":
+            logger.info(f"Space {settings.HF_SPACE_MODEL} está dormindo, acordando...")
+            # O cliente do Gradio fará o wake-up automaticamente
+            client = Client(settings.HF_SPACE_MODEL, token=hf_token)
+            logger.info("Space acordado e pronto.")
+        elif status in ["Running", "Building"]:
+            logger.info(f"Space {settings.HF_SPACE_MODEL} já está ativo ({status}).")
+            client = Client(settings.HF_SPACE_MODEL, token=hf_token)
+        else:
+            logger.info(f"Space {settings.HF_SPACE_MODEL} em estado {status}, tentando conectar...")
+            client = Client(settings.HF_SPACE_MODEL, token=hf_token)
+
+        return True
     except Exception as e:
         logger.warning(f"Warmup do Space falhou: {e}")
+        return False
 
 
 def generate_video_from_prompt(prompt: str) -> Optional[str]:
@@ -170,8 +295,15 @@ def generate_video_from_prompt(prompt: str) -> Optional[str]:
     """
     logger.info("Iniciando geração de vídeo a partir do prompt...")
     
+    # Validar o acesso ao Space antes de começar o processo
+    if not validate_hf_space_access(settings.HF_SPACE_MODEL):
+        logger.error(f"Space de vídeo {settings.HF_SPACE_MODEL} não está acessível")
+        return None
+
     # Warmup do Space para garantir que esteja ativo antes de gerar vídeo
-    warmup_space()
+    if not warmup_space():
+        logger.error("Não foi possível inicializar o Space para geração de vídeo")
+        return None
 
     # Dividir o prompt em duas partes para gerar dois vídeos de 5 segundos cada
     # e concatenar para obter um vídeo de 10 segundos com transição suave
@@ -199,18 +331,16 @@ def generate_video_from_prompt(prompt: str) -> Optional[str]:
     if not segment2_path:
         logger.error("Falha ao gerar o segundo segmento de vídeo")
         return None
-    
-    # Concatenar os segmentos
+
+    # Concatenar os segmentos gerados
     final_video_path = concatenate_video_segments([segment1_path, segment2_path])
     
-    # Remover os arquivos temporários dos segmentos individuais
+    # Remover arquivos temporários após a concatenação
     try:
         if segment1_path and os.path.exists(segment1_path):
             os.remove(segment1_path)
-            logger.info(f"Arquivo temporário removido: {segment1_path}")
         if segment2_path and os.path.exists(segment2_path):
             os.remove(segment2_path)
-            logger.info(f"Arquivo temporário removido: {segment2_path}")
     except Exception as e:
         logger.warning(f"Erro ao remover arquivos temporários: {e}")
     

@@ -57,7 +57,7 @@ cp .env.example .env
 
 5. Inicie o servidor:
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+python start_app.py
 ```
 
 ### Frontend
@@ -88,10 +88,10 @@ npm run dev
 O sistema requer as seguintes configurações:
 
 ### Hugging Face
-- `HF_API_KEY`: Token de acesso à API do Hugging Face
+- `HF_API_KEY` ou `HF_TOKEN`: Token de acesso à API do Hugging Face
 - `HF_MODEL`: Modelo de LLM a ser utilizado (padrão: `meta-llama/Meta-Llama-3-8B-Instruct`)
 - `HF_PROVIDER`: Provedor de inferência (padrão: `huggingface`)
-- `HF_SPACE_MODEL`: Modelo de geração de vídeo (padrão: `Wan-AI/Wan2.1-T2V-1.3B`)
+- `HF_SPACE_MODEL`: Modelo de geração de vídeo (padrão: `AlexMendes33/Wan-AI-Wan2.1-T2V-1.3B`)
 
 ### Google Drive
 - `GOOGLE_CREDENTIALS_PATH`: Caminho para o arquivo de credenciais do Google
@@ -99,58 +99,35 @@ O sistema requer as seguintes configurações:
 
 ## 🎯 Uso
 
-1. Acesse o dashboard em `http://localhost:3000`
-2. Crie uma nova campanha informando nome e descrição
-3. Aguarde o processamento do vídeo (monitore o status na página de campanhas)
-4. Acesse o vídeo gerado através do link disponibilizado
+Para executar o pipeline de geração de vídeo:
 
-## 🔧 Arquitetura
+1. Certifique-se de ter as credenciais configuradas corretamente
+2. Execute o backend com `python start_app.py`
+3. Envie uma requisição POST para `/api/campaigns/` com os detalhes da campanha
+4. O sistema processará a solicitação e gerará um vídeo promocional
 
-### Backend
-- `main.py`: Ponto de entrada da aplicação FastAPI
-- `config.py`: Configurações e variáveis de ambiente
-- `database.py`: Configuração do banco de dados
-- `models/`: Modelos ORM e Pydantic
-- `api/routes/`: Endpoints da API
-- `services/`: Serviços de integração (LLM, Vídeo, Drive)
-- `worker.py`: Processamento assíncrono de jobs
+## 🔧 Solução de Problemas
 
-### Frontend
-- `pages/`: Páginas da aplicação Next.js
-- `components/`: Componentes reutilizáveis
-- `public/`: Recursos estáticos
+Se encontrar problemas com a geração de vídeo:
 
-## 🧪 Testes
+1. Verifique se o token do Hugging Face está configurado corretamente
+2. Confirme que o modelo de vídeo especificado em `HF_SPACE_MODEL` está acessível
+3. Execute `python test_video_connection.py` para verificar a conexão com o provedor de vídeo
 
-Execute os testes com:
-```bash
-# Backend
-python -m pytest
+## 🤖 Agentes
 
-# Frontend
-npm run test
-```
+O sistema utiliza agentes especializados para diferentes tarefas:
 
-## 🤝 Contribuindo
+- **Script Generator Agent**: Responsável por criar roteiros criativos com base nas informações da campanha
+- **Video Generator Agent**: Processa os roteiros e gera os vídeos promocionais
+- **Upload Agent**: Faz upload dos vídeos gerados para o Google Drive
 
-Contribuições são o que tornam a comunidade open source um lugar incrível para aprender, inspirar e criar. Qualquer contribuição que você fizer será muito apreciada.
-
-1. Faça um fork do projeto
-2. Crie um branch com sua feature (`git checkout -b feature/nova-feature`)
-3. Faça commit de suas alterações (`git commit -m 'Adiciona nova feature'`)
-4. Faça push para o branch (`git push origin feature/nova-feature`)
-5. Abra um Pull Request
+Mais informações sobre os agentes podem ser encontradas no arquivo [AGENTS.md](AGENTS.md).
 
 ## 📄 Licença
 
-Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
+Este projeto está licenciado sob a MIT License - veja o arquivo [LICENSE](LICENSE) para detalhes.
 
-## 👨‍💻 Autores
+## 👥 Contribuição
 
-- Seu Nome - Desenvolvedor Principal
-
-## 💬 Contato
-
-Seu Nome - contato@seudominio.com
-
-Projeto criado para demonstrar a aplicação de tecnologias modernas na automação de criação de conteúdo de vídeo.
+Contribuições são bem-vindas! Sinta-se à vontade para abrir uma issue ou enviar um pull request.

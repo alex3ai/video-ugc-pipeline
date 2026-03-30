@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "3"))
     
     # Configurações específicas para a nova abordagem de geração de vídeo
-    HF_SPACE_MODEL: str = os.getenv("HF_SPACE_MODEL", "Wan-AI/Wan2.1-T2V-1.3B")
+    HF_SPACE_MODEL: str = os.getenv("HF_SPACE_MODEL", "AlexMendes33/Wan-AI-Wan2.1-T2V-1.3B")
     VIDEO_DURATION_PER_SEGMENT: int = int(os.getenv("VIDEO_DURATION_PER_SEGMENT", "5"))
     CROSSFADE_DURATION: float = float(os.getenv("CROSSFADE_DURATION", "1.0"))
     TEMP_VIDEO_DIR: str = os.getenv("TEMP_VIDEO_DIR", tempfile.gettempdir())

@@ -226,6 +226,39 @@ python -c "import sqlite3; conn = sqlite3.connect('video_ugc_pipeline.db'); conn
   - Forçar reconstrução da instância do serviço de LLM sempre que a função `get_llm_service()` é chamada
   - Isso garante que as configurações mais recentes sejam usadas em cada requisição
 
+## 7. Soluções Recentes Implementadas - 29/03/2026
+
+### ✅ Problemas com a integração do Hugging Face Hub
+- **Problema:** Erros de API do Hugging Face com mensagens como "Repository Not Found" e "404 Client Error" ao tentar acessar o Space Wan-AI/Wan2.1-T2V-1.3B
+- **Causa:** 
+  - Repo_id incorreto: código estava usando `AlexMendes33/Wan2.1-T2V-1.3B` em vez do nome completo `AlexMendes33/Wan-AI-Wan2.1-T2V-1.3B`
+  - Repo_type incorreto: código estava tratando o Space como se fosse um modelo regular (`repo_type="model"`), quando na verdade deveria usar `repo_type="space"`
+  - Conflito de tokens: código estava chamando `huggingface_hub.login()` mesmo quando o token já estava configurado como variável de ambiente
+  - Chamada incorreta de endpoints: código estava tentando endpoints fixos em vez de testar diferentes possibilidades
+- **Solução:**
+  - Corrigido o nome do repo_id no arquivo `config.py` para o nome completo e correto: `AlexMendes33/Wan-AI-Wan2.1-T2V-1.3B`
+  - Implementado uso correto do `repo_type="space"` ao verificar a existência do repositório no arquivo `services/video_service/video_service.py`
+  - Implementado tratamento adequado de tokens para evitar conflitos, verificando se o token já está disponível como variável de ambiente
+  - Adicionada verificação do status do Space antes de tentar gerar vídeos, diferenciando entre os estados "Sleeping", "Running", e "Building"
+  - Implementada lógica para testar diferentes endpoints do Space (como "/infer", "/predict", "/generate", "/run")
+  - Atualizado o script de teste `test_video_connection.py` para incluir os 4 testes solicitados:
+    - Teste 1: autenticação (whoami) - verifica se o token está configurado corretamente
+    - Teste 2: verificação se o Space existe com `repo_type="space"`
+    - Teste 3: verificação do status de runtime do Space
+    - Teste 4: teste de conexão com a API de vídeo
+  - Corrigido o uso do parâmetro `token` ao invés de `hf_token` ao inicializar o cliente Gradio
+  - Atualizado o README.md e .env.example para refletir o nome correto do repositório
+
+### ✅ Problemas com a importação de funções no script de teste
+- **Problema:** Erro `ImportError: cannot import name 'validate_hf_repo_access'` ao executar o script de teste
+- **Causa:** A função estava definida como `validate_hf_space_access` mas estava sendo importada como `validate_hf_repo_access`
+- **Solução:** Corrigido o nome da função importada no arquivo `test_video_connection.py` de `validate_hf_repo_access` para `validate_hf_space_access`
+
+### ✅ Problemas com a chamada do cliente Gradio
+- **Problema:** Erro `Client.__init__() got an unexpected keyword argument 'hf_token'` ao tentar inicializar o cliente Gradio
+- **Causa:** O parâmetro correto é `token` e não `hf_token`
+- **Solução:** Corrigido o parâmetro para `token` em todas as chamadas do cliente Gradio nos arquivos `services/video_service/video_service.py`
+
 ## Sumário de Debugging - Video_UGC_Pipeline
 
 ## Data: 25/03/2026
